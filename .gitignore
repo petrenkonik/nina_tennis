@@ -1,0 +1,40 @@
+# Node
+node_modules/
+
+# Build output
+.next/
+dist/
+build/
+out/
+coverage/
+
+# Logs
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+pnpm-debug.log*
+
+# Env files
+.env*
+
+# OS
+.DS_Store
+Thumbs.db
+
+# IDE
+.vscode/
+.idea/
+*.swp
+*.swo
+
+# Test results
+/test-results/
+
+# Local
+.cursor/
+
+# Images
+apps/backend/player_photos/
+
+# Misc
+*.local

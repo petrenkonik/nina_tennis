@@ -1,0 +1,34 @@
+{
+  "name": "nina-tennis",
+  "version": "1.0.0",
+  "private": true,
+  "workspaces": [
+    "apps/*",
+    "libs/*"
+  ],
+  "scripts": {
+    "dev": "concurrently \"npm run dev:backend\" \"npm run dev:frontend\"",
+    "dev:frontend": "cd apps/frontend && npm run dev",
+    "dev:backend": "cd apps/backend && npm run start:dev",
+    "build": "npm run build:shared && npm run build:backend && npm run build:frontend",
+    "build:shared": "cd libs/shared && npm run build",
+    "build:frontend": "cd apps/frontend && npm run build",
+    "build:backend": "cd apps/backend && npm run build",
+    "install:all": "npm install && cd apps/frontend && npm install && cd ../../apps/backend && npm install && cd ../../libs/shared && npm install",
+    "test:e2e:backend": "cd apps/backend && npm run test:e2e",
+    "test:e2e:frontend": "cd apps/frontend && npm run test:e2e",
+    "test:frontend": "cd apps/frontend && npm run test",
+    "seed": "cd apps/backend && npm run seed"
+  },
+  "devDependencies": {
+    "@babel/preset-env": "^7.27.2",
+    "@playwright/test": "^1.53.1",
+    "concurrently": "^8.2.2",
+    "cross-env": "^7.0.3"
+  },
+  "dependencies": {
+    "react": "^19.1.0",
+    "react-dom": "^19.1.0",
+    "react-icons": "^5.5.0"
+  }
+}
