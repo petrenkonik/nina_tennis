@@ -1,5 +1,4 @@
 import { Schema, Document, Types } from 'mongoose';
-import { Group } from '@shared/models/group';
 
 export interface GroupDocument extends Document {
   name: string;

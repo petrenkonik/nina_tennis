@@ -26,6 +26,19 @@ export async function getPlayerById(id: string) {
   return res.json();
 }
 
+export async function updatePlayer(id: string, data: any, accessToken?: string) {
+  const res = await fetch(`${API_URL}/players/${id}`, {
+    method: 'PUT',
+    headers: {
+      'Content-Type': 'application/json',
+      ...(accessToken ? { Authorization: `Bearer ${accessToken}` } : {}),
+    },
+    body: JSON.stringify(data),
+  });
+  if (!res.ok) throw new Error('Ошибка обновления игрока');
+  return res.json();
+}
+
 // Группы
 export async function getGroups() {
   const res = await fetch(`${API_URL}/groups`);
@@ -197,5 +210,36 @@ export async function deleteClub(id: string, accessToken?: string) {
 export async function getGroupMatches(groupId: string) {
   const res = await fetch(`${API_URL}/groups/${groupId}/matches`);
   if (!res.ok) throw new Error('Ошибка загрузки матчей группы');
+  return res.json();
+}
+
+export async function uploadPlayerAvatar(playerId: string, file: File, accessToken?: string) {
+  const formData = new FormData();
+  formData.append('avatar', file);
+  const res = await fetch(`${API_URL}/players/${playerId}/avatar`, {
+    method: 'POST',
+    headers: {
+      ...(accessToken ? { Authorization: `Bearer ${accessToken}` } : {}),
+    },
+    body: formData,
+  });
+  if (!res.ok) throw new Error('Ошибка загрузки аватара');
+  return res.json();
+}
+
+export function getPlayerAvatarUrl(photoUrl: string): string {
+  if (!photoUrl) return '';
+  if (photoUrl.startsWith('http')) return photoUrl;
+  return `${API_URL}${photoUrl.startsWith('/') ? '' : '/'}${photoUrl}`;
+}
+
+export async function deletePlayerAvatar(playerId: string, accessToken?: string) {
+  const res = await fetch(`${API_URL}/players/${playerId}/avatar`, {
+    method: 'DELETE',
+    headers: {
+      ...(accessToken ? { Authorization: `Bearer ${accessToken}` } : {}),
+    },
+  });
+  if (!res.ok) throw new Error('Ошибка удаления аватара');
   return res.json();
 } 

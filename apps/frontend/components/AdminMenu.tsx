@@ -7,7 +7,6 @@ const adminMenu = [
   { href: '/admin/tournaments', label: 'Турниры' },
   { href: '/admin/groups', label: 'Группы' },
   { href: '/admin/players', label: 'Участники' },
-  { href: '/admin/matches', label: 'Матчи' },
   { href: '/admin/clubs', label: 'Клубы' },
 ];
 

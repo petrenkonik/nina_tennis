@@ -1,5 +1,5 @@
 import React from 'react';
-import { API_URL } from 'app/lib/api';
+import { getPlayerAvatarUrl } from 'app/lib/api';
 import type { Player } from '@shared/models/tennis';
 
 interface BracketPlayerMiniProps {
@@ -24,7 +24,7 @@ const BracketPlayerMini: React.FC<BracketPlayerMiniProps> = (props) => {
       {displayClub && <span className="text-xs text-gray-500">{displayClub}</span>}
     </span>
   );
-  const photoSrc = displayPhoto.startsWith('/') ? `${API_URL}${displayPhoto}` : displayPhoto;
+  const photoSrc = getPlayerAvatarUrl(displayPhoto);
   return (
       <span className="flex items-center gap-1">
       <img src={photoSrc} alt={displayName} className="w-8 h-8 rounded-full border object-cover" />

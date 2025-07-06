@@ -66,4 +66,11 @@ export class PlayerController {
     await this.playerModel.findByIdAndUpdate(id, { photoUrl });
     return { photoUrl };
   }
+
+  @Delete(':id/avatar')
+  @UseGuards(JwtAuthGuard)
+  async deleteAvatar(@Param('id') id: string) {
+    await this.playerModel.findByIdAndUpdate(id, { photoUrl: '' });
+    return { success: true };
+  }
 } 

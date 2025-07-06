@@ -14,6 +14,6 @@ export const PlayerSchema = new Schema<PlayerDocument>({
   birthYear: { type: Number, required: true },
   gender: { type: String, enum: ['М', 'Ж'], required: true },
   club: { type: String, required: true },
-  photoUrl: { type: String, required: true },
+  photoUrl: { type: String, required: false },
   rating: { type: Number },
 }); 
