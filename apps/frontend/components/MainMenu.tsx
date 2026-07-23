@@ -9,12 +9,19 @@ export default function MainMenu() {
   const pathname = usePathname();
   const { data: session } = useSession();
   const isAuth = !!session;
+  const isAdmin = isAuth && (session as any)?.user?.role === 'admin';
+  // Публичные пункты — видны всем; «Профиль» — только авторизованным;
+  // «Админ» — только администраторам.
   const menu = [
-    { href: '/', label: 'Главная', icon: '🏠' },
-    { href: '/tournaments', label: 'Турниры', icon: '🎾' },
-    { href: '/profile', label: 'Профиль', icon: '👤' },
-    { href: '/admin', label: 'Админ', icon: '🛠️' },
-  ];
+    { href: '/', label: 'Главная', icon: '🏠', auth: false },
+    { href: '/tournaments', label: 'Турниры', icon: '🎾', auth: false },
+    { href: '/profile', label: 'Профиль', icon: '👤', auth: true, adminOnly: false },
+    { href: '/admin', label: 'Админ', icon: '🛠️', auth: true, adminOnly: true },
+  ].filter(item => {
+    if (!item.auth) return true;            // публичный
+    if (item.adminOnly) return isAdmin;     // только админ
+    return isAuth;                          // любой авторизованный
+  });
   const linkClass = (active: boolean) =>
     `flex flex-col items-center text-xs transition-colors ${active ? 'text-brand-600 dark:text-brand-400 font-bold' : 'text-content-muted'}`;
   return (

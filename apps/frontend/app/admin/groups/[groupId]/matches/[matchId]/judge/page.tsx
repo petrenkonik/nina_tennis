@@ -43,6 +43,8 @@ export default function JudgeMatchPage() {
   const [courtSide, setCourtSide] = useState<{ p1: CourtSide; p2: CourtSide }>({ p1: 'left', p2: 'right' });
   const [confirmFinish, setConfirmFinish] = useState(false);
 
+  const loadedRef = useRef(false);
+
   const loadMatch = useCallback(async () => {
     setLoading(true);
     setError('');
@@ -56,12 +58,19 @@ export default function JudgeMatchPage() {
       setMatch(m);
       setServerSide(m.serverSide ?? null);
       setCourtSide(m.courtSide ?? { p1: 'left', p2: 'right' });
-      setScoring(createInitialScoringState(3));
-      setHistory([]);
+      // Восстанавливаем сохранённое состояние судейства (после рефреша).
+      if (m.scoringState) {
+        setScoring(m.scoringState);
+        setHistory((m.pointHistory ?? []) as Side[]);
+      } else {
+        setScoring(createInitialScoringState(3));
+        setHistory([]);
+      }
     } catch (e: any) {
       setError(e.message || 'Ошибка загрузки матча');
     } finally {
       setLoading(false);
+      loadedRef.current = true;
     }
   }, [groupId, matchId]);
 
@@ -80,15 +89,13 @@ export default function JudgeMatchPage() {
     ? scoring.sets[0] > scoring.sets[1] ? 1 : 2
     : null;
 
-  // Подача по умолчанию чередуется, но судья может переопределить кнопкой
+  // Подача выбирается судьёй вручную с верхней панели — не трогаем её при очке.
   const handlePoint = useCallback((side: Side) => {
     if (matchOver || saving) return;
     setSaved(false);
     const result = addPoint(scoring, side);
     setScoring(result.state);
     setHistory((h) => [...h, side]);
-    // Авто-переключение подачи после очка (сторона, проигравшая очко, не подаёт)
-    setServerSide(side === 1 ? 'right' : 'left');
   }, [scoring, matchOver, saving]);
 
   const handleUndo = useCallback(() => {
@@ -137,6 +144,8 @@ export default function JudgeMatchPage() {
         player2: player2?._id || null,
         serverSide,
         courtSide,
+        scoringState: scoring,
+        pointHistory: history,
       };
       if (winnerId) payload.winnerId = winnerId;
       if (match.scheduledAt) payload.scheduledAt = new Date(match.scheduledAt).toISOString();
@@ -152,6 +161,60 @@ export default function JudgeMatchPage() {
       setSaving(false);
     }
   }, [match, groupId, matchId, accessToken, winnerSide, player1, player2, history, scoring, serverSide, courtSide]);
+
+  // Автосохранение состояния (с дебаунсом): чтобы зритель на /m/:id видел очки
+  // в реальном времени, а рефреш страницы судьи не сбрасывал счёт.
+  // Эффект зависит только от изменений судейства (не от match!), чтобы не зациклиться:
+  // save → setMatch → новый match НЕ перезапускает этот эффект.
+  const autosaveTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const autosaveToken = useRef(0);
+  const matchRef = useRef<Match | null>(null);
+  matchRef.current = match;
+  useEffect(() => {
+    // Не автосохраняем до первой загрузки матча.
+    if (!loadedRef.current || !matchRef.current) return;
+    if (autosaveTimer.current) clearTimeout(autosaveTimer.current);
+    const myToken = ++autosaveToken.current;
+    autosaveTimer.current = setTimeout(async () => {
+      const m = matchRef.current;
+      if (!m) return;
+      // Завершённый/отменённый матч не трогаем автосейвом.
+      if (m.status === 'finished' || m.status === 'canceled') return;
+      const scoreStr = history.length > 0 ? formatScore(scoring) : '';
+      const winnerId = winnerSide === 1 ? player1?._id : winnerSide === 2 ? player2?._id : null;
+      const payload: any = {
+        status: matchOver ? 'finished' : 'in_progress',
+        score: scoreStr,
+        court: m.court || '',
+        round: m.round ?? 1,
+        player1: player1?._id || null,
+        player2: player2?._id || null,
+        serverSide,
+        courtSide,
+        scoringState: scoring,
+        pointHistory: history,
+      };
+      if (winnerId) {
+        payload.winnerId = winnerId;
+        if (matchOver) payload.playedAt = new Date().toISOString();
+      }
+      try {
+        const updated = await updateMatch(groupId, matchId, payload, accessToken);
+        if (myToken === autosaveToken.current) {
+          setMatch({ ...m, ...updated, player1, player2, groupId } as Match);
+          setSaved(true);
+        }
+      } catch (e: any) {
+        if (myToken === autosaveToken.current) {
+          setError(e.message || 'Ошибка автосохранения');
+        }
+      }
+    }, 1200);
+    return () => {
+      if (autosaveTimer.current) clearTimeout(autosaveTimer.current);
+    };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [scoring, history, serverSide, courtSide]);
 
   // Напоминание о смене сторон: после нечётного общего числа геймов в текущем сете
   const currentSetGames = scoring.games[scoring.currentSet - 1];

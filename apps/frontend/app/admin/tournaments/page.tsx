@@ -178,6 +178,12 @@ function AdminTournamentsPage() {
                 >
                   {getGroupsCount(t)} групп
                 </button>
+                <button
+                  className="bg-surface-muted text-content rounded px-2 py-1 hover:text-brand-600"
+                  onClick={() => router.push(`/admin/tournaments/${t._id}/referees`)}
+                >
+                  🎾 Судьи
+                </button>
               </div>
               <div className="text-xs text-content-muted mb-1">
                 {clubs.find((c) => c._id === t.clubId)?.name || 'Без клуба'}

@@ -13,6 +13,62 @@ export async function getTournamentById(id: string) {
   return res.json();
 }
 
+// Все матчи турнира (по всем группам) — для календаря/расписания
+export async function getTournamentMatches(id: string) {
+  const res = await fetch(`${API_URL}/tournaments/${id}/matches`);
+  if (!res.ok) throw new Error('Ошибка загрузки матчей турнира');
+  return res.json();
+}
+
+// ===== СУДЬИ (referees) =====
+
+// Список судей турнира (с кол-вом отсуженных матчей)
+export async function getTournamentReferees(id: string) {
+  const res = await fetch(`${API_URL}/tournaments/${id}/referees`);
+  if (!res.ok) throw new Error('Ошибка загрузки судей');
+  return res.json();
+}
+
+// Сгенерировать ссылку-приглашение судей (админ)
+export async function generateRefereeInvite(id: string, accessToken?: string) {
+  const res = await fetch(`${API_URL}/tournaments/${id}/referee-invite`, {
+    method: 'POST',
+    headers: {
+      ...(accessToken ? { Authorization: `Bearer ${accessToken}` } : {}),
+    },
+  });
+  if (!res.ok) throw new Error('Ошибка генерации приглашения');
+  return res.json();
+}
+
+// Принять приглашение стать судьёй (авторизованный пользователь)
+export async function acceptRefereeInvite(token: string, accessToken?: string) {
+  const res = await fetch(`${API_URL}/tournaments/referee-invite/${token}/accept`, {
+    method: 'POST',
+    headers: {
+      'Content-Type': 'application/json',
+      ...(accessToken ? { Authorization: `Bearer ${accessToken}` } : {}),
+    },
+  });
+  if (!res.ok) {
+    const txt = await res.text().catch(() => '');
+    throw new Error(res.status === 404 ? 'Приглашение недействительно' : (txt || 'Ошибка принятия приглашения'));
+  }
+  return res.json();
+}
+
+// Удалить судью из турнира (админ)
+export async function removeReferee(id: string, userId: string, accessToken?: string) {
+  const res = await fetch(`${API_URL}/tournaments/${id}/referees/${userId}`, {
+    method: 'DELETE',
+    headers: {
+      ...(accessToken ? { Authorization: `Bearer ${accessToken}` } : {}),
+    },
+  });
+  if (!res.ok) throw new Error('Ошибка удаления судьи');
+  return res.json();
+}
+
 // Игроки
 export async function getPlayers() {
   const res = await fetch(`${API_URL}/players`);
@@ -23,6 +79,13 @@ export async function getPlayers() {
 export async function getPlayerById(id: string) {
   const res = await fetch(`${API_URL}/players/${id}`);
   if (!res.ok) throw new Error('Ошибка загрузки игрока');
+  return res.json();
+}
+
+// Все матчи игрока (player1 или player2) — для страницы участника
+export async function getPlayerMatches(id: string) {
+  const res = await fetch(`${API_URL}/players/${id}/matches`);
+  if (!res.ok) throw new Error('Ошибка загрузки матчей игрока');
   return res.json();
 }
 
@@ -118,6 +181,48 @@ export async function loginUser(email: string, password: string) {
   });
   if (!res.ok) throw new Error('Ошибка авторизации');
   return res.json(); // { access_token, user }
+}
+
+// Профиль текущего пользователя
+export async function getMyProfile(accessToken?: string) {
+  const res = await fetch(`${API_URL}/users/me`, {
+    headers: {
+      ...(accessToken ? { Authorization: `Bearer ${accessToken}` } : {}),
+    },
+  });
+  if (!res.ok) throw new Error('Ошибка загрузки профиля');
+  return res.json();
+}
+
+// Обновление собственного профиля
+export async function updateMyProfile(data: { firstName?: string; lastName?: string; email?: string; password?: string }, accessToken?: string) {
+  const res = await fetch(`${API_URL}/users/me`, {
+    method: 'PUT',
+    headers: {
+      'Content-Type': 'application/json',
+      ...(accessToken ? { Authorization: `Bearer ${accessToken}` } : {}),
+    },
+    body: JSON.stringify(data),
+  });
+  if (!res.ok) {
+    const txt = await res.text().catch(() => '');
+    throw new Error(res.status === 409 ? 'Email уже используется' : (txt || 'Ошибка обновления профиля'));
+  }
+  return res.json();
+}
+
+// Обновление пользователя администратором (имя, фамилия)
+export async function updateUser(id: string, data: { firstName?: string; lastName?: string }, accessToken?: string) {
+  const res = await fetch(`${API_URL}/users/${id}`, {
+    method: 'PUT',
+    headers: {
+      'Content-Type': 'application/json',
+      ...(accessToken ? { Authorization: `Bearer ${accessToken}` } : {}),
+    },
+    body: JSON.stringify(data),
+  });
+  if (!res.ok) throw new Error('Ошибка обновления пользователя');
+  return res.json();
 }
 
 export async function createGroup(data: any, accessToken?: string) {

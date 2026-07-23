@@ -1,4 +1,4 @@
-import { Controller, Get, Param, Post, Body, Put, Delete, UseGuards } from '@nestjs/common';
+import { Controller, Get, Param, Post, Body, Put, Delete, UseGuards, Req } from '@nestjs/common';
 import { InjectModel } from '@nestjs/mongoose';
 import { Model, Types } from 'mongoose';
 import { GroupDocument } from './group.schema';
@@ -6,6 +6,7 @@ import { JwtAuthGuard } from '../auth/guards/jwt-auth.guard';
 import { RolesGuard } from '../auth/guards/roles.guard';
 import { Roles } from '../auth/decorators/roles.decorator';
 import { MatchDocument } from './match.schema';
+import { TournamentsService } from './tournaments.service';
 
 /**
  * Генерирует олимпийскую (playoff) сетку для заданного списка игроков с учётом посева
@@ -76,6 +77,7 @@ export class GroupsController {
   constructor(
     @InjectModel('Group') private groupModel: Model<GroupDocument>,
     @InjectModel('Match') private matchModel: Model<MatchDocument>,
+    private readonly tournamentsService: TournamentsService,
   ) {}
 
   @Get()
@@ -137,9 +139,26 @@ export class GroupsController {
 
   @Put(':groupId/matches/:matchId')
   @UseGuards(JwtAuthGuard, RolesGuard)
-  @Roles('admin')
-  async updateMatch(@Param('groupId') groupId: string, @Param('matchId') matchId: string, @Body() data: any) {
-    return this.matchModel.findByIdAndUpdate(matchId, data, { new: true });
+  @Roles('admin', 'referee')
+  async updateMatch(@Param('groupId') groupId: string, @Param('matchId') matchId: string, @Body() data: any, @Req() req: any) {
+    // Проверяем, что пользователь — админ или судья турнира этого матча.
+    await this.tournamentsService.assertCanJudgeMatch(matchId, { userId: req.user.userId, role: req.user.role });
+    // Судья, сохраняющий матч, фиксируется в refereeId и истории judgedBy.
+    if (req.user.role === 'referee' && !(data as any).refereeId) {
+      const uid = new Types.ObjectId(req.user.userId);
+      (data as any).refereeId = uid;
+      const existing = await this.matchModel.findById(matchId);
+      const alreadyJudged = (existing?.judgedBy || []).some((j) => String(j) === String(req.user.userId));
+      if (!alreadyJudged) {
+        return this.matchModel.findByIdAndUpdate(
+          matchId,
+          { ...data, refereeId: uid, $addToSet: { judgedBy: uid } },
+          { new: true },
+        ).populate(['player1', 'player2', 'winnerId', 'refereeId', 'judgedBy']).exec();
+      }
+    }
+    return this.matchModel.findByIdAndUpdate(matchId, data, { new: true })
+      .populate(['player1', 'player2', 'winnerId', 'refereeId', 'judgedBy']).exec();
   }
 
   @Delete(':groupId/matches/:matchId')

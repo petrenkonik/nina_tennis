@@ -12,14 +12,14 @@ export class MatchController {
   @Get()
   async findAll() {
     return this.matchModel.find()
-      .populate(['player1', 'player2', 'winnerId'])
+      .populate(['player1', 'player2', 'winnerId', 'refereeId', 'judgedBy'])
       .exec();
   }
 
   @Get(':id')
   async findById(@Param('id') id: string) {
     return this.matchModel.findById(id)
-      .populate(['player1', 'player2', 'winnerId'])
+      .populate(['player1', 'player2', 'winnerId', 'refereeId', 'judgedBy'])
       .exec();
   }
 }

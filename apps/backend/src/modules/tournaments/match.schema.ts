@@ -17,6 +17,14 @@ export interface MatchDocument extends Document {
   serverSide?: ServerSide;
   /** Расстановка игроков на корте: player1/player2 — слева/справа. */
   courtSide?: { p1: CourtSide; p2: CourtSide };
+  /** Полный снимок состояния судейства (для восстановления после рефреша). */
+  scoringState?: any;
+  /** История очков (стороны 1/2) — для undo и точного восстановления. */
+  pointHistory?: number[];
+  /** Текущий судья матча (ref User). */
+  refereeId?: Types.ObjectId | null;
+  /** История всех, кто судил матч (ref User). */
+  judgedBy?: Types.ObjectId[];
 }
 
 export const MatchSchema = new Schema<MatchDocument>({
@@ -34,5 +42,9 @@ export const MatchSchema = new Schema<MatchDocument>({
     p1: { type: String, enum: ['left', 'right'] },
     p2: { type: String, enum: ['left', 'right'] },
   },
+  scoringState: { type: Schema.Types.Mixed, default: null },
+  pointHistory: { type: [Number], default: [] },
+  refereeId: { type: Schema.Types.ObjectId, ref: 'User', default: null },
+  judgedBy: [{ type: Schema.Types.ObjectId, ref: 'User', default: [] }],
 }, { _id: true });
  

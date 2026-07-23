@@ -17,6 +17,7 @@ export default function BracketPage() {
   const [tournament, setTournament] = useState<Tournament | null>(null);
   const [group, setGroup] = useState<any>(null);
   const [error, setError] = useState('');
+  const [roundFilter, setRoundFilter] = useState<string>('all');
 
   useEffect(() => {
     async function fetchData() {
@@ -55,6 +56,11 @@ export default function BracketPage() {
 
   const title = `Сетка${tournament?.name ? ' · ' + tournament.name : ''}${group?.name ? ' · ' + group.name : ''}`;
 
+  // Фильтрация раундов: 'all' — показать все, иначе — только выбранный (по 1-индексу).
+  const visibleRounds = roundFilter === 'all'
+    ? rounds
+    : rounds.filter((_, i) => String(i + 1) === roundFilter);
+
   return (
     <MainLayout header={title}>
       {error && (
@@ -66,10 +72,25 @@ export default function BracketPage() {
         <Link href={`./`} className="text-brand-600 dark:text-brand-400 underline text-sm">
           ← К списку участников
         </Link>
+        {rounds.length > 1 && (
+          <label className="flex items-center gap-2 text-sm text-content-muted">
+            <span>Раунд:</span>
+            <select
+              className="border border-surface-border rounded px-2 py-1 text-sm bg-surface-card text-content"
+              value={roundFilter}
+              onChange={(e) => setRoundFilter(e.target.value)}
+            >
+              <option value="all">Все</option>
+              {rounds.map((r, i) => (
+                <option key={i} value={String(i + 1)}>{r.title || `Раунд ${i + 1}`}</option>
+              ))}
+            </select>
+          </label>
+        )}
       </div>
       <div className="rounded-xl border border-surface-border bg-surface-card p-2 sm:p-4">
         <BracketView
-          rounds={rounds}
+          rounds={visibleRounds}
           matchHref={(matchId) => `/m/${matchId}`}
         />
       </div>

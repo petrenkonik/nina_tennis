@@ -1,5 +1,6 @@
 // Основные интерфейсы для теннисного турнира
 import { Group } from './group';
+import type { MatchScoringState } from '../scoring';
 
 export interface Player {
   _id?: string;
@@ -27,6 +28,14 @@ export interface Match {
   serverSide?: 'left' | 'right' | null;
   /** Расстановка игроков на корте: player1/player2 — слева/справа. */
   courtSide?: { p1: 'left' | 'right'; p2: 'left' | 'right' };
+  /** Полный снимок состояния судейства (для восстановления после рефреша). */
+  scoringState?: MatchScoringState | null;
+  /** История очков (стороны 1/2) — для undo и точного восстановления. */
+  pointHistory?: number[];
+  /** Текущий судья матча (id пользователя, populate → объект). */
+  refereeId?: string | { _id: string; email?: string; firstName?: string; lastName?: string } | null;
+  /** История всех, кто судил матч (id пользователей, populate → объекты). */
+  judgedBy?: Array<string | { _id: string; email?: string; firstName?: string; lastName?: string }>;
 }
 
 export interface Tournament {

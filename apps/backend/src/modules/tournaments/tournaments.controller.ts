@@ -1,4 +1,4 @@
-import { Controller, Get, Post, Put, Delete, Param, Body, UseGuards } from '@nestjs/common';
+import { Controller, Get, Post, Put, Delete, Param, Body, UseGuards, Req } from '@nestjs/common';
 import { TournamentsService } from './tournaments.service';
 import { JwtAuthGuard } from '../auth/guards/jwt-auth.guard';
 import { RolesGuard } from '../auth/guards/roles.guard';
@@ -16,6 +16,39 @@ export class TournamentsController {
   @Get(':id')
   findById(@Param('id') id: string) {
     return this.tournamentsService.findById(id);
+  }
+
+  @Get(':id/matches')
+  findMatches(@Param('id') id: string) {
+    return this.tournamentsService.findMatches(id);
+  }
+
+  // ===== СУДЬИ (referees) =====
+
+  @UseGuards(JwtAuthGuard, RolesGuard)
+  @Roles('admin')
+  @Post(':id/referee-invite')
+  async generateRefereeInvite(@Param('id') id: string) {
+    return this.tournamentsService.generateRefereeInvite(id);
+  }
+
+  @Get(':id/referees')
+  async getReferees(@Param('id') id: string) {
+    return this.tournamentsService.getReferees(id);
+  }
+
+  @UseGuards(JwtAuthGuard, RolesGuard)
+  @Roles('admin')
+  @Delete(':id/referees/:userId')
+  async removeReferee(@Param('id') id: string, @Param('userId') userId: string) {
+    return this.tournamentsService.removeReferee(id, userId);
+  }
+
+  /** Принять приглашение стать судьёй — любой авторизованный пользователь. */
+  @UseGuards(JwtAuthGuard)
+  @Post('referee-invite/:token/accept')
+  async acceptRefereeInvite(@Param('token') token: string, @Req() req: any) {
+    return this.tournamentsService.acceptRefereeInvite(token, req.user.userId);
   }
 
   @UseGuards(JwtAuthGuard, RolesGuard)

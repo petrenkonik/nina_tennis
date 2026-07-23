@@ -2,6 +2,7 @@ import { Controller, Get, Param, Post, Put, Delete, Body, UseGuards, UploadedFil
 import { InjectModel } from '@nestjs/mongoose';
 import { Model, Types } from 'mongoose';
 import { PlayerDocument } from './player.schema';
+import { MatchDocument } from './match.schema';
 import { JwtAuthGuard } from '../auth/guards/jwt-auth.guard';
 import { RolesGuard } from '../auth/guards/roles.guard';
 import { Roles } from '../auth/decorators/roles.decorator';
@@ -14,6 +15,7 @@ import * as path from 'path';
 export class PlayerController {
   constructor(
     @InjectModel('Player') private playerModel: Model<PlayerDocument>,
+    @InjectModel('Match') private matchModel: Model<MatchDocument>,
   ) {}
 
   @Get()
@@ -24,6 +26,15 @@ export class PlayerController {
   @Get(':id')
   async findById(@Param('id') id: string) {
     return this.playerModel.findById(id).exec();
+  }
+
+  /** Все матчи, в которых участвовал игрок (player1 или player2). */
+  @Get(':id/matches')
+  async findMatches(@Param('id') id: string) {
+    return this.matchModel
+      .find({ $or: [{ player1: id }, { player2: id }] })
+      .populate(['player1', 'player2', 'winnerId'])
+      .exec();
   }
 
   @Post()

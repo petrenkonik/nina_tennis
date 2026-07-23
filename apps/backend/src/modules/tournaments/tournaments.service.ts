@@ -1,10 +1,12 @@
-import { Injectable } from '@nestjs/common';
+import { Injectable, NotFoundException, ForbiddenException } from '@nestjs/common';
 import { InjectModel } from '@nestjs/mongoose';
 import { Model, Types } from 'mongoose';
+import * as crypto from 'crypto';
 import { TournamentDocument } from './tournament.schema';
 import { MatchDocument } from './match.schema';
 import { PlayerDocument } from './player.schema';
 import { GroupDocument } from './group.schema';
+import { User, UserDocument } from '../users/schemas/user.schema';
 
 @Injectable()
 export class TournamentsService {
@@ -13,6 +15,7 @@ export class TournamentsService {
     @InjectModel('Match') private matchModel: Model<MatchDocument>,
     @InjectModel('Player') private playerModel: Model<PlayerDocument>,
     @InjectModel('Group') private groupModel: Model<GroupDocument>,
+    @InjectModel(User.name) private userModel: Model<UserDocument>,
   ) {}
 
   async findAll() {
@@ -41,6 +44,27 @@ export class TournamentsService {
 
   async findById(id: string) {
     return this.tournamentModel.findById(id).populate('groups').exec();
+  }
+
+  /**
+   * Все матчи турнира (по всем группам) для календаря/расписания.
+   * Возвращает { matches, groups } — matches с populated игроками,
+   * groups — { _id, name } для подписей.
+   */
+  async findMatches(id: string) {
+    const tournament = await this.tournamentModel.findById(id).exec();
+    if (!tournament) throw new Error('Tournament not found');
+    const groups = await this.groupModel.find({ _id: { $in: tournament.groups as any[] } }).exec();
+    const allMatchIds = groups.flatMap((g) => (g.matches as any[]).map((m) => m));
+    const matches = allMatchIds.length === 0
+      ? []
+      : await this.matchModel.find({ _id: { $in: allMatchIds } })
+          .populate(['player1', 'player2', 'winnerId', 'refereeId', 'judgedBy'])
+          .exec();
+    return {
+      matches,
+      groups: groups.map((g) => ({ _id: g._id, name: g.name })),
+    };
   }
 
   async create(data: Partial<TournamentDocument>) {
@@ -99,7 +123,7 @@ export class TournamentsService {
 
   async getBracket(groupId: string) {
     const group = await this.groupModel.findById(groupId)
-      .populate({ path: 'matches', populate: ['player1', 'player2'] })
+      .populate({ path: 'matches', populate: ['player1', 'player2', 'winnerId', 'refereeId', 'judgedBy'] })
       .populate('seededPlayers.player');
     if (!group || !group.matches.length) return { rounds: [] };
     const matches = group.matches as any[];
@@ -136,11 +160,104 @@ export class TournamentsService {
             playedAt: m.playedAt,
             winner: m.winnerId,
             court: m.court,
-            status: m.status, 
+            status: m.status,
+            refereeId: m.refereeId,
+            judgedBy: m.judgedBy,
           };
         }),
       });
     }
     return { rounds };
+  }
+
+  // ===== СУДЬИ (referees) =====
+
+  /** Сгенерировать многоразовый токен приглашения судей для турнира. */
+  async generateRefereeInvite(id: string) {
+    const tournament = await this.tournamentModel.findById(id);
+    if (!tournament) throw new NotFoundException('Турнир не найден');
+    const token = crypto.randomBytes(24).toString('hex');
+    tournament.refereeInviteToken = token;
+    await tournament.save();
+    return { token };
+  }
+
+  /** Принять приглашение: пользователь становится судьёй турнира. Идемпотентно. */
+  async acceptRefereeInvite(token: string, userId: string) {
+    const tournament = await this.tournamentModel.findOne({ refereeInviteToken: token });
+    if (!tournament) throw new NotFoundException('Приглашение недействительно');
+    const uid = new Types.ObjectId(userId);
+    const already = (tournament.referees as any[]).some((r) => String(r) === String(uid));
+    if (!already) {
+      tournament.referees.push(uid);
+      await tournament.save();
+    }
+    // Повышаем роль до referee, если пользователь был обычным user.
+    const user = await this.userModel.findById(uid);
+    if (user && user.role === 'user') {
+      user.role = 'referee';
+      await user.save();
+    }
+    return { tournamentId: tournament._id, tournamentName: tournament.name, success: true };
+  }
+
+  /** Список судей турнира с кол-вом отсуженных матчей. */
+  async getReferees(id: string) {
+    const tournament = await this.tournamentModel.findById(id)
+      .populate({ path: 'referees', select: 'email firstName lastName role' })
+      .exec();
+    if (!tournament) throw new NotFoundException('Турнир не найден');
+    const referees = tournament.referees as any[];
+    // Все матчи турнира — для подсчёта отсуженных каждым судьёй.
+    const groups = await this.groupModel.find({ _id: { $in: tournament.groups as any[] } }).exec();
+    const matchIds = groups.flatMap((g) => (g.matches as any[]).map((m) => m));
+    const matches = matchIds.length === 0
+      ? []
+      : await this.matchModel.find({ _id: { $in: matchIds } }, { judgedBy: 1 }).exec();
+    return referees.map((r) => {
+      const matchesJudged = matches.filter((m) =>
+        (m.judgedBy || []).some((j) => String(j) === String(r._id)),
+      ).length;
+      return {
+        _id: r._id,
+        email: r.email,
+        firstName: r.firstName,
+        lastName: r.lastName,
+        role: r.role,
+        matchesJudged,
+      };
+    });
+  }
+
+  /** Удалить судью из турнира. */
+  async removeReferee(id: string, userId: string) {
+    const tournament = await this.tournamentModel.findById(id);
+    if (!tournament) throw new NotFoundException('Турнир не найден');
+    tournament.referees = (tournament.referees as any[]).filter(
+      (r) => String(r) !== String(userId),
+    ) as any;
+    await tournament.save();
+    return { success: true };
+  }
+
+  /**
+   * Проверяет, может ли пользователь судить матч:
+   * админ — всегда да; судья — если он в списке referees турнира этого матча.
+   */
+  async assertCanJudgeMatch(matchId: string, user: { userId: string; role: string }) {
+    if (user.role === 'admin') return;
+    const match = await this.matchModel.findById(matchId);
+    if (!match) throw new NotFoundException('Матч не найден');
+    // Найдём группу, содержащую матч, затем турнир этой группы.
+    const group = await this.groupModel.findOne({ matches: match._id }).exec();
+    if (!group) throw new ForbiddenException('Матч не привязан к группе');
+    const tournament = await this.tournamentModel.findOne({ groups: group._id }).exec();
+    if (!tournament) throw new ForbiddenException('Турнир не найден');
+    const isReferee = (tournament.referees as any[]).some(
+      (r) => String(r) === String(user.userId),
+    );
+    if (!isReferee) {
+      throw new ForbiddenException('Вы не судья этого турнира');
+    }
   }
 } 

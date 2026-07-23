@@ -3,7 +3,7 @@ import { Document } from 'mongoose';
 
 export type UserDocument = User & Document;
 
-export type UserRole = 'admin' | 'user';
+export type UserRole = 'admin' | 'user' | 'referee';
 
 @Schema({ timestamps: true })
 export class User {

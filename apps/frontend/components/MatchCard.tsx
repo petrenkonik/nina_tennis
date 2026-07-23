@@ -23,6 +23,10 @@ export interface BracketMatch {
   status?: string;
   /** Кому подаёт: 'left' | 'right' | null (для live-матчей). */
   serverSide?: 'left' | 'right' | null;
+  /** Текущий судья (populate User) или null. */
+  refereeId?: { _id: string; firstName?: string; lastName?: string; email?: string } | string | null;
+  /** История судей (populate User). */
+  judgedBy?: Array<{ _id: string; firstName?: string; lastName?: string; email?: string } | string>;
 }
 
 export interface MatchCardProps {
@@ -58,6 +62,13 @@ export default function MatchCard({
   const isLive = match.status === 'in_progress';
   const serverLeft = isLive && match.serverSide === 'left';
   const serverRight = isLive && match.serverSide === 'right';
+
+  // Судья матча (отображаем текущего; если есть история — всех).
+  const referee = refereeName(match.refereeId);
+  const allJudges = (match.judgedBy || []).map(refereeName).filter(Boolean);
+  const judgesLabel = allJudges.length > 0
+    ? `Судья: ${allJudges.join(', ')}`
+    : (referee ? `Судья: ${referee}` : null);
 
   const inner = (
     <div
@@ -113,6 +124,14 @@ export default function MatchCard({
         )}
       </div>
 
+      {/* Судья */}
+      {judgesLabel && (
+        <div className="px-2 py-1 border-t border-surface-border flex items-center gap-1 text-[0.6rem] text-content-muted bg-brand-50/40 dark:bg-brand-900/10">
+          <span>🧑‍⚖️</span>
+          <span className="truncate">{judgesLabel}</span>
+        </div>
+      )}
+
       {/* Соединительная линия справа к следующему раунду */}
       {connector === 'right' && (
         <span className="hidden md:block absolute top-1/2 -right-4 w-4 h-px bg-surface-border" />
@@ -128,4 +147,12 @@ export default function MatchCard({
     );
   }
   return inner;
+}
+
+/** Извлекает читаемое имя судьи из populate-объекта или строки-id. */
+function refereeName(r: BracketMatch['refereeId']): string | null {
+  if (!r) return null;
+  if (typeof r === 'string') return null; // только id, без populate — не показываем
+  const name = [r.firstName, r.lastName].filter(Boolean).join(' ').trim();
+  return name || r.email || null;
 }

@@ -6,6 +6,10 @@ export interface TournamentDocument extends Document {
   endDate: Date;
   clubId?: Types.ObjectId;
   groups: Types.ObjectId[];
+  /** Судьи турнира (пользователи с ролью referee). */
+  referees: Types.ObjectId[];
+  /** Многоразовый токен приглашения судей. */
+  refereeInviteToken?: string;
 }
 
 export const TournamentSchema = new Schema<TournamentDocument>({
@@ -14,4 +18,6 @@ export const TournamentSchema = new Schema<TournamentDocument>({
   endDate: { type: Date, required: true },
   clubId: { type: Schema.Types.ObjectId, ref: 'Club', required: false },
   groups: [{ type: Schema.Types.ObjectId, ref: 'Group' }],
+  referees: [{ type: Schema.Types.ObjectId, ref: 'User', default: [] }],
+  refereeInviteToken: { type: String, default: null },
 }); 

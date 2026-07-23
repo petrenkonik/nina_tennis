@@ -19,8 +19,8 @@ export interface BracketViewProps {
   className?: string;
 }
 
-const MATCH_HEIGHT = 88; // высота карточки матча, px
-const MATCH_GAP = 16; // базовый зазор между матчами в первом раунде, px
+const MATCH_HEIGHT = 132; // высота карточки матча, px (реальная: шапка+2 игрока+футер)
+const MATCH_GAP = 20; // базовый зазор между матчами в первом раунде, px
 
 export default function BracketView({ rounds, matchHref, compact, className }: BracketViewProps) {
   const [zoom, setZoom] = useState(1);
@@ -91,8 +91,8 @@ export default function BracketView({ rounds, matchHref, compact, className }: B
                   {round.seeds.map((match, mIdx) => (
                     <div
                       key={match.id || mIdx}
-                      className="relative flex items-center"
-                      style={{ height: MATCH_HEIGHT }}
+                      className="relative flex items-center overflow-visible"
+                      style={{ minHeight: MATCH_HEIGHT, flex: '0 0 auto' }}
                     >
                       <MatchCard
                         match={match}
