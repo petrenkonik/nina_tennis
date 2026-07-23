@@ -3,20 +3,17 @@ import { Test, TestingModule } from '@nestjs/testing';
 import { INestApplication, ValidationPipe } from '@nestjs/common';
 import { AppModule } from '../src/app.module';
 import { getModelToken } from '@nestjs/mongoose';
-import { User } from '../src/modules/users/schemas/user.schema';
-import { spawn } from 'child_process';
+import { Model } from 'mongoose';
+import { User, UserDocument } from '../src/modules/users/schemas/user.schema';
+import * as bcrypt from 'bcryptjs';
 
-jest.setTimeout(30000);
+jest.setTimeout(60000);
 
 describe('AuthController (e2e)', () => {
   let app: INestApplication;
+  let userModel: Model<UserDocument>;
 
   beforeAll(async () => {
-    await new Promise<void>((resolve, reject) => {
-      const proc = spawn('npm', ['run', 'seed'], { cwd: __dirname + '/../', stdio: 'inherit', shell: true });
-      proc.on('close', code => (code === 0 ? resolve() : reject(new Error('Seed failed'))));
-    });
-
     const moduleFixture: TestingModule = await Test.createTestingModule({
       imports: [AppModule],
     }).compile();
@@ -24,25 +21,43 @@ describe('AuthController (e2e)', () => {
     app = moduleFixture.createNestApplication();
     app.useGlobalPipes(new ValidationPipe({ whitelist: true, transform: true }));
     await app.init();
+
+    userModel = moduleFixture.get<Model<UserDocument>>(getModelToken(User.name));
+
+    // Очищаем коллекцию пользователей и создаём одного admin-пользователя напрямую,
+    // без запуска npm run seed (тот качает аватарки из интернета и медленный).
+    await userModel.deleteMany({});
+    await userModel.create({
+      email: 'seedadmin@example.com',
+      password: await bcrypt.hash('admin', 10),
+      role: 'admin',
+      firstName: 'Seed',
+      lastName: 'Admin',
+    });
   });
 
   afterAll(async () => {
+    if (userModel) {
+      await userModel.deleteMany({ email: 'admin@example.com' });
+    }
     await app.close();
   });
 
-  it('should register a new admin', async () => {
+  it('should register a new user (seed already created first admin)', async () => {
     const res = await request(app.getHttpServer())
       .post('/auth/register')
       .send({
         email: 'admin@example.com',
-        password: 'admin',
+        password: 'admin123',
         firstName: 'Admin',
         lastName: 'User',
       })
       .expect(201);
 
     expect(res.body.user.email).toBe('admin@example.com');
-    expect(res.body.user.role).toBe('admin');
+    // Seed уже создал первого пользователя (admin), поэтому этот — обычный user.
+    // Логика: первый зарегистрированный = admin, остальные = user.
+    expect(res.body.user.role).toBe('user');
     expect(res.body.user.password).toBeUndefined();
     expect(res.body.access_token).toBeDefined();
   });
@@ -52,7 +67,7 @@ describe('AuthController (e2e)', () => {
       .post('/auth/register')
       .send({
         email: 'admin@example.com',
-        password: 'admin',
+        password: 'admin123',
       })
       .expect(409);
   });
@@ -62,7 +77,7 @@ describe('AuthController (e2e)', () => {
       .post('/auth/login')
       .send({
         email: 'admin@example.com',
-        password: 'admin',
+        password: 'admin123',
       })
       .expect(201);
 
@@ -85,7 +100,7 @@ describe('AuthController (e2e)', () => {
       .post('/auth/login')
       .send({
         email: 'admin@example.com',
-        password: 'admin',
+        password: 'admin123',
       });
 
     const token = loginRes.body.access_token;
@@ -97,7 +112,8 @@ describe('AuthController (e2e)', () => {
 
     console.log('PROFILE RESPONSE:', res.body);
     expect(res.body.email).toBe('admin@example.com');
-    expect(res.body.role).toBe('admin');
+    // admin@example.com — второй пользователь (после seed), поэтому role='user'.
+    expect(res.body.role).toBe('user');
   });
 
   it('should not get profile with invalid JWT', async () => {

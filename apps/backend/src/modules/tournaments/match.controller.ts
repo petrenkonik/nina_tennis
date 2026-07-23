@@ -11,11 +11,15 @@ export class MatchController {
 
   @Get()
   async findAll() {
-    return this.matchModel.find().exec();
+    return this.matchModel.find()
+      .populate(['player1', 'player2', 'winnerId', 'refereeId', 'judgedBy'])
+      .exec();
   }
 
   @Get(':id')
   async findById(@Param('id') id: string) {
-    return this.matchModel.findById(id).exec();
+    return this.matchModel.findById(id)
+      .populate(['player1', 'player2', 'winnerId', 'refereeId', 'judgedBy'])
+      .exec();
   }
-} 
+}

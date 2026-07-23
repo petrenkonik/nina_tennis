@@ -2,7 +2,10 @@ import { Controller, Get, Param, Post, Put, Delete, Body, UseGuards, UploadedFil
 import { InjectModel } from '@nestjs/mongoose';
 import { Model, Types } from 'mongoose';
 import { PlayerDocument } from './player.schema';
+import { MatchDocument } from './match.schema';
 import { JwtAuthGuard } from '../auth/guards/jwt-auth.guard';
+import { RolesGuard } from '../auth/guards/roles.guard';
+import { Roles } from '../auth/decorators/roles.decorator';
 import { FileInterceptor } from '@nestjs/platform-express';
 import { diskStorage } from 'multer';
 import type { File as MulterFile } from 'multer';
@@ -12,6 +15,7 @@ import * as path from 'path';
 export class PlayerController {
   constructor(
     @InjectModel('Player') private playerModel: Model<PlayerDocument>,
+    @InjectModel('Match') private matchModel: Model<MatchDocument>,
   ) {}
 
   @Get()
@@ -24,26 +28,39 @@ export class PlayerController {
     return this.playerModel.findById(id).exec();
   }
 
+  /** Все матчи, в которых участвовал игрок (player1 или player2). */
+  @Get(':id/matches')
+  async findMatches(@Param('id') id: string) {
+    return this.matchModel
+      .find({ $or: [{ player1: id }, { player2: id }] })
+      .populate(['player1', 'player2', 'winnerId'])
+      .exec();
+  }
+
   @Post()
-  @UseGuards(JwtAuthGuard)
+  @UseGuards(JwtAuthGuard, RolesGuard)
+  @Roles('admin')
   async create(@Body() body: any) {
     return this.playerModel.create(body);
   }
 
   @Put(':id')
-  @UseGuards(JwtAuthGuard)
+  @UseGuards(JwtAuthGuard, RolesGuard)
+  @Roles('admin')
   async update(@Param('id') id: string, @Body() body: any) {
     return this.playerModel.findByIdAndUpdate(id, body, { new: true });
   }
 
   @Delete(':id')
-  @UseGuards(JwtAuthGuard)
+  @UseGuards(JwtAuthGuard, RolesGuard)
+  @Roles('admin')
   async delete(@Param('id') id: string) {
     return this.playerModel.findByIdAndDelete(id);
   }
 
   @Post(':id/avatar')
-  @UseGuards(JwtAuthGuard)
+  @UseGuards(JwtAuthGuard, RolesGuard)
+  @Roles('admin')
   @UseInterceptors(FileInterceptor('avatar', {
     storage: diskStorage({
       destination: './player_photos',
@@ -68,7 +85,8 @@ export class PlayerController {
   }
 
   @Delete(':id/avatar')
-  @UseGuards(JwtAuthGuard)
+  @UseGuards(JwtAuthGuard, RolesGuard)
+  @Roles('admin')
   async deleteAvatar(@Param('id') id: string) {
     await this.playerModel.findByIdAndUpdate(id, { photoUrl: '' });
     return { success: true };

@@ -3,6 +3,8 @@ import { Document } from 'mongoose';
 
 export type UserDocument = User & Document;
 
+export type UserRole = 'admin' | 'user' | 'referee';
+
 @Schema({ timestamps: true })
 export class User {
   @Prop({ required: true, unique: true })
@@ -11,8 +13,8 @@ export class User {
   @Prop({ required: true })
   password: string;
 
-  @Prop({ default: 'admin' })
-  role: string;
+  @Prop({ default: 'user' as UserRole })
+  role: UserRole;
 
   @Prop()
   firstName?: string;

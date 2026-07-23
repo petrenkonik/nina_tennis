@@ -58,6 +58,14 @@ export default function TournamentPage() {
     <MainLayout header={tournament.name}>
       {clubName && <div className="text-blue-700 text-sm mb-2">Клуб: {clubName}</div>}
       <div className="text-gray-500 mb-4">{new Date(tournament.startDate).toLocaleDateString('ru-RU')} — {new Date(tournament.endDate).toLocaleDateString('ru-RU')}</div>
+      <div className="mb-4">
+        <Link
+          href={`/tournaments/${tournament._id}/schedule`}
+          className="inline-flex items-center gap-2 rounded-lg border border-surface-border bg-surface-card hover:border-brand-400 hover:bg-brand-50/50 dark:hover:bg-brand-900/10 transition-colors px-3 py-2 text-sm font-medium"
+        >
+          📅 Расписание игр
+        </Link>
+      </div>
       <h2 className="font-semibold mb-2">Группы</h2>
       {tournament.groups && tournament.groups.length > 0 ? (
         <AllGroups groups={tournament.groups} tournamentId={tournament._id} />
