@@ -1,10 +1,11 @@
 "use client";
 import React, { useEffect, useState } from 'react';
-import { getGroupById, getTournamentById, getGroupMatches, createGroup, updateGroup, deleteGroup } from 'app/lib/api';
+import { getGroupById, getTournamentById, getGroupMatches, addMatch, updateMatch, deleteMatch, generateMatches } from 'app/lib/api';
 import AdminMenu from 'components/AdminMenu';
-import { generateKnockoutBracket } from '@shared/utils';
 import { useParams } from 'next/navigation';
+import { useSession } from 'next-auth/react';
 import GroupHeader from './GroupHeader';
+import Link from 'next/link';
 
 const ROUND_OPTIONS = Array.from({ length: 8 }, (_, i) => i + 1);
 const STATUS_OPTIONS = [
@@ -24,14 +25,17 @@ const STATUS_LABELS: Record<string, string> = {
 
 export default function GroupBracketEditor() {
   const { groupId } = useParams() as { groupId: string };
+  const { data: session } = useSession();
+  const accessToken = (session as any)?.accessToken;
   const [group, setGroup] = useState<any>(null);
   const [matches, setMatches] = useState<any[]>([]);
   const [editingMatch, setEditingMatch] = useState<any>(null);
   const [players, setPlayers] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
+  const [saving, setSaving] = useState(false);
+  const [error, setError] = useState('');
   const [roundFilter, setRoundFilter] = useState<number | ''>('');
   const [statusFilter, setStatusFilter] = useState('');
-  const [generateRounds, setGenerateRounds] = useState(1);
   const [tournament, setTournament] = useState<any>(null);
 
   useEffect(() => {
@@ -46,42 +50,84 @@ export default function GroupBracketEditor() {
     getGroupMatches(groupId).then(setMatches);
   }, [groupId]);
 
-  async function handleGenerate() {
-    if (!players.length) return;
-    await fetch(`/groups/${groupId}/generate-matches`, {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      // accessToken можно добавить при необходимости
-    });
-    getGroupMatches(groupId).then(setMatches);
+  async function refreshMatches() {
+    const fresh = await getGroupMatches(groupId);
+    setMatches(fresh);
   }
 
-  function handleAddMatch() {
-    setMatches([...matches, {
-      _id: `m${Date.now()}`,
-      player1: null,
-      player2: null,
-      round: 1,
-      status: 'scheduled',
-      scheduledAt: '',
-      score: '',
-      winnerId: '',
-    }]);
+  async function handleGenerate() {
+    if (!players.length) return;
+    setSaving(true); setError('');
+    try {
+      await generateMatches(groupId, accessToken);
+      await refreshMatches();
+    } catch (e: any) {
+      setError(e.message || 'Ошибка генерации');
+    } finally {
+      setSaving(false);
+    }
+  }
+
+  async function handleAddMatch() {
+    setSaving(true); setError('');
+    try {
+      const created = await addMatch(groupId, {
+        player1: null,
+        player2: null,
+        round: 1,
+        status: 'scheduled',
+        court: '',
+        score: '',
+      }, accessToken);
+      setMatches([...matches, created]);
+    } catch (e: any) {
+      setError(e.message || 'Ошибка добавления матча');
+    } finally {
+      setSaving(false);
+    }
   }
 
   function handleEditMatch(match: any) {
     setEditingMatch({ ...match });
   }
 
-  function handleSaveMatch() {
-    setMatches(matches.map(m => m._id === editingMatch._id ? editingMatch : m));
-    setEditingMatch(null);
-    // TODO: отправить на сервер
+  async function handleSaveMatch() {
+    if (!editingMatch) return;
+    setSaving(true); setError('');
+    try {
+      // Нормализуем игроков к id для бэка
+      const payload: any = {
+        player1: editingMatch.player1?._id || null,
+        player2: editingMatch.player2?._id || null,
+        round: editingMatch.round ?? 1,
+        status: editingMatch.status,
+        court: editingMatch.court || '',
+        score: editingMatch.score || '',
+        winnerId: editingMatch.winnerId || null,
+      };
+      if (editingMatch.scheduledAt) {
+        payload.scheduledAt = new Date(editingMatch.scheduledAt).toISOString();
+      }
+      const updated = await updateMatch(groupId, editingMatch._id, payload, accessToken);
+      setMatches(matches.map(m => String(m._id) === String(editingMatch._id) ? { ...m, ...updated, player1: editingMatch.player1, player2: editingMatch.player2 } : m));
+      setEditingMatch(null);
+    } catch (e: any) {
+      setError(e.message || 'Ошибка сохранения матча');
+    } finally {
+      setSaving(false);
+    }
   }
 
-  function handleDeleteMatch(id: string) {
-    setMatches(matches.filter(m => m._id !== id));
-    // TODO: удалить на сервере
+  async function handleDeleteMatch(id: string) {
+    setSaving(true); setError('');
+    try {
+      await deleteMatch(groupId, id, accessToken);
+      setMatches(matches.filter(m => String(m._id) !== String(id)));
+    } catch (e: any) {
+      setError(e.message || 'Ошибка удаления матча');
+    } finally {
+      setSaving(false);
+    }
   }
 
   const filteredMatches = matches.filter(m =>
@@ -96,6 +142,8 @@ export default function GroupBracketEditor() {
       <AdminMenu className="hidden md:flex" />
       <h1 className="text-2xl font-extrabold mb-2">Редактор матчей группы</h1>
       <GroupHeader tournament={tournament} group={group} />
+      {error && <div className="bg-red-100 text-red-700 px-3 py-2 rounded mb-4 text-sm">{error}</div>}
+      {saving && <div className="text-blue-600 text-sm mb-2">Сохранение…</div>}
       <div className="flex gap-2 mb-4 flex-wrap">
         <label className="flex items-center gap-2">
           Раунд:
@@ -125,7 +173,15 @@ export default function GroupBracketEditor() {
             <div className="flex gap-2 items-center">
               <span className="font-bold">Раунд {m.round}</span>
               <span className="text-xs text-gray-500">Статус: {STATUS_LABELS[m.status] || m.status}</span>
-              <button className="ml-auto px-2 py-1 bg-yellow-100 text-yellow-800 rounded" onClick={() => handleEditMatch(m)}>Редактировать</button>
+              {m.player1 && m.player2 && (
+                <Link
+                  href={`/admin/groups/${groupId}/matches/${m._id}/judge`}
+                  className="ml-auto px-2 py-1 bg-emerald-100 text-emerald-800 rounded"
+                >
+                  Судить
+                </Link>
+              )}
+              <button className={`px-2 py-1 bg-yellow-100 text-yellow-800 rounded ${m.player1 && m.player2 ? '' : 'ml-auto'}`} onClick={() => handleEditMatch(m)}>Редактировать</button>
               <button className="px-2 py-1 bg-red-100 text-red-700 rounded" onClick={() => handleDeleteMatch(m._id)}>Удалить</button>
             </div>
             <div className="flex gap-4">
@@ -184,6 +240,9 @@ export default function GroupBracketEditor() {
             </label>
             <label>Дата
               <input type="datetime-local" className="border rounded px-2 py-1 w-full" value={editingMatch.scheduledAt ? new Date(editingMatch.scheduledAt).toISOString().slice(0,16) : ''} onChange={e => setEditingMatch((em: any) => ({ ...em, scheduledAt: e.target.value }))} />
+            </label>
+            <label>Корт
+              <input type="text" placeholder="Напр. Корт 1" className="border rounded px-2 py-1 w-full" value={editingMatch.court || ''} onChange={e => setEditingMatch((em: any) => ({ ...em, court: e.target.value }))} />
             </label>
             <label>Статус
               <select className="border rounded px-2 py-1 w-full" value={editingMatch.status} onChange={e => setEditingMatch((em: any) => ({ ...em, status: e.target.value }))}>

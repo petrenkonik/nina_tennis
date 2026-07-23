@@ -11,6 +11,7 @@ import { GroupsController } from './groups.controller';
 import { ClubController } from './club.controller';
 import { PlayerController } from './player.controller';
 import { MatchController } from './match.controller';
+import { RolesGuard } from '../auth/guards/roles.guard';
 
 @Module({
   imports: [MongooseModule.forFeature([
@@ -20,7 +21,7 @@ import { MatchController } from './match.controller';
     { name: 'Club', schema: ClubSchema },
     { name: 'Match', schema: MatchSchema },
   ])],
-  providers: [TournamentsService],
+  providers: [TournamentsService, RolesGuard],
   controllers: [TournamentsController, GroupsController, ClubController, PlayerController, MatchController],
 })
 export class TournamentsModule {} 

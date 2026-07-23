@@ -3,7 +3,39 @@
 @tailwind utilities;
 
 @layer base {
+  :root {
+    /* Светлая тема */
+    --surface: 0 0% 100%;          /* белый фон */
+    --surface-muted: 220 14% 96%;  /* серые секции */
+    --surface-card: 0 0% 100%;     /* карточки */
+    --surface-border: 220 13% 91%; /* границы */
+    --content: 222 47% 11%;        /* основной текст */
+    --content-muted: 215 16% 47%;  /* приглушённый текст */
+    color-scheme: light;
+  }
+
+  .dark {
+    /* Тёмная тема */
+    --surface: 222 47% 8%;         /* тёмно-синий-серый фон */
+    --surface-muted: 222 40% 13%;
+    --surface-card: 222 38% 16%;
+    --surface-border: 217 33% 24%;
+    --content: 210 20% 92%;
+    --content-muted: 215 16% 65%;
+    color-scheme: dark;
+  }
+
   html {
     font-family: system-ui, sans-serif;
   }
-} 
+
+  body {
+    background-color: hsl(var(--surface-muted));
+    color: hsl(var(--content));
+  }
+
+  /* Цифры счёта не «прыгают» по ширине */
+  .tabular-nums {
+    font-variant-numeric: tabular-nums;
+  }
+}

@@ -1,6 +1,10 @@
-"use client";
 import './globals.css';
-import { SessionProvider } from 'next-auth/react';
+import Providers from './providers';
+
+export const metadata = {
+  title: 'Теннисные турниры',
+  description: 'Управление теннисными турнирами, сетки и live-счёт',
+};
 
 export default function RootLayout({
   children,
@@ -8,9 +12,17 @@ export default function RootLayout({
   children: React.ReactNode
 }) {
   return (
-    <html lang="en">
+    <html lang="ru" suppressHydrationWarning>
+      <head>
+        {/* Предотвращает мигание темы до гидратации */}
+        <script
+          dangerouslySetInnerHTML={{
+            __html: `try{var t=localStorage.getItem('theme');if(t==='dark'||(!t&&window.matchMedia('(prefers-color-scheme: dark)').matches)){document.documentElement.classList.add('dark')}}catch(e){}`,
+          }}
+        />
+      </head>
       <body>
-        <SessionProvider>{children}</SessionProvider>
+        <Providers>{children}</Providers>
       </body>
     </html>
   )

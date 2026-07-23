@@ -1,7 +1,7 @@
 import { Injectable, ConflictException } from '@nestjs/common';
 import { InjectModel } from '@nestjs/mongoose';
 import { Model } from 'mongoose';
-import { User, UserDocument } from './schemas/user.schema';
+import { User, UserDocument, UserRole } from './schemas/user.schema';
 import * as bcrypt from 'bcryptjs';
 
 @Injectable()
@@ -14,10 +14,16 @@ export class UsersService {
       throw new ConflictException('User already exists');
     }
     const hashedPassword = await bcrypt.hash(createUserDto.password, 10);
+
+    // Первый зарегистрированный пользователь становится админом (чтобы можно было
+    // изначально зайти в систему), все последующие — обычными пользователями.
+    const userCount = await this.userModel.countDocuments().exec();
+    const role: UserRole = userCount === 0 ? 'admin' : 'user';
+
     const createdUser = new this.userModel({
       ...createUserDto,
       password: hashedPassword,
-      role: 'admin',
+      role,
     });
     await createdUser.save();
     const userObj = createdUser.toObject ? createdUser.toObject() : createdUser;
@@ -31,5 +37,11 @@ export class UsersService {
 
   async findById(id: string): Promise<User | null> {
     return this.userModel.findById(id).exec();
+  }
+
+  async findAll(): Promise<any[]> {
+    // Без паролей
+    const users = await this.userModel.find({}, { password: 0 }).exec();
+    return users;
   }
 } 

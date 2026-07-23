@@ -23,6 +23,10 @@ export interface Match {
   winnerId?: string; // id победителя
   round?: number;
   court: string;
+  /** Кто подаёт в текущем гейме — по стороне корта. */
+  serverSide?: 'left' | 'right' | null;
+  /** Расстановка игроков на корте: player1/player2 — слева/справа. */
+  courtSide?: { p1: 'left' | 'right'; p2: 'left' | 'right' };
 }
 
 export interface Tournament {

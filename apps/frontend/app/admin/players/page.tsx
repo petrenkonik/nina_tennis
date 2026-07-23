@@ -1,7 +1,9 @@
 "use client";
-import React, { useEffect, useState, useRef, useCallback } from 'react';
-import { getPlayers, getClubs, uploadPlayerAvatar, updatePlayer, getPlayerAvatarUrl, deletePlayerAvatar, createPlayer } from 'app/lib/api';
+import React, { useEffect, useState, useRef } from 'react';
+import { getPlayers, getClubs, createPlayer } from 'app/lib/api';
 import AdminMenu from 'components/AdminMenu';
+import { Button, Card, Skeleton } from 'components/ui';
+import { FaPlus, FaEdit, FaTimes } from 'react-icons/fa';
 import { useSession } from 'next-auth/react';
 import PlayerAvatarEditor from './PlayerAvatarEditor';
 
@@ -15,35 +17,37 @@ export default function PlayersPage() {
   const [filterGender, setFilterGender] = useState('');
   const [filterBirthYear, setFilterBirthYear] = useState('');
   const [loading, setLoading] = useState(true);
-  const fileInputRef = useRef<HTMLInputElement>(null);
-  const [uploadingId, setUploadingId] = useState<string | null>(null);
   const [editingPlayer, setEditingPlayer] = useState<any | null>(null);
   const [editForm, setEditForm] = useState<any>({});
   const [showCreateModal, setShowCreateModal] = useState(false);
   const [createForm, setCreateForm] = useState({ fullName: '', birthYear: '', gender: '', club: '' });
   const [creating, setCreating] = useState(false);
+  const [saving, setSaving] = useState(false);
+  const fileInputRef = useRef<HTMLInputElement>(null);
 
   useEffect(() => {
-    getPlayers().then(setPlayers);
-    getClubs().then(setClubs);
-    setLoading(false);
+    Promise.all([getPlayers(), getClubs()]).then(([p, c]) => {
+      setPlayers(p);
+      setClubs(c);
+      setLoading(false);
+    });
   }, []);
 
   function filteredPlayers() {
-    return players.filter(p =>
-      (!search || p.fullName.toLowerCase().includes(search.toLowerCase())) &&
-      (!filterClub || p.club === filterClub) &&
-      (!filterGender || p.gender === filterGender) &&
-      (!filterBirthYear || String(p.birthYear) === filterBirthYear)
+    return players.filter(
+      (p) =>
+        (!search || p.fullName.toLowerCase().includes(search.toLowerCase())) &&
+        (!filterClub || p.club === filterClub) &&
+        (!filterGender || p.gender === filterGender) &&
+        (!filterBirthYear || String(p.birthYear) === filterBirthYear),
     );
   }
 
   async function handleAvatarUpload(e: React.ChangeEvent<HTMLInputElement>, playerId: string) {
     const file = e.target.files?.[0];
     if (!file) return;
-    setUploadingId(playerId);
+    const { uploadPlayerAvatar } = await import('app/lib/api');
     await uploadPlayerAvatar(playerId, file, accessToken);
-    setUploadingId(null);
     getPlayers().then(setPlayers);
   }
 
@@ -57,219 +61,218 @@ export default function PlayersPage() {
     });
   }
 
-  function cancelEdit() {
-    setEditingPlayer(null);
-    setEditForm({});
-  }
-
   async function saveEdit() {
     if (!editingPlayer) return;
-    await updatePlayer(editingPlayer._id, editForm, accessToken);
-    setEditingPlayer(null);
-    setEditForm({});
-    getPlayers().then(setPlayers);
+    setSaving(true);
+    try {
+      const { updatePlayer } = await import('app/lib/api');
+      await updatePlayer(editingPlayer._id, editForm, accessToken);
+      setEditingPlayer(null);
+      setEditForm({});
+      getPlayers().then(setPlayers);
+    } finally {
+      setSaving(false);
+    }
   }
 
   async function handleCreatePlayer() {
     setCreating(true);
-    await createPlayer(createForm, accessToken);
-    setCreating(false);
-    setShowCreateModal(false);
-    setCreateForm({ fullName: '', birthYear: '', gender: '', club: '' });
-    getPlayers().then(setPlayers);
+    try {
+      await createPlayer(createForm, accessToken);
+      setShowCreateModal(false);
+      setCreateForm({ fullName: '', birthYear: '', gender: '', club: '' });
+      getPlayers().then(setPlayers);
+    } finally {
+      setCreating(false);
+    }
   }
 
+  const inputCls = 'border border-surface-border rounded-lg px-3 py-2 bg-surface-card text-content text-sm';
+  const labelCls = 'block text-xs text-content-muted mb-1';
+
   return (
-    <main className="max-w-5xl mx-auto py-8 px-2 pb-24">
+    <main className="max-w-5xl mx-auto py-8 px-4 pb-24">
       <AdminMenu className="hidden md:flex" />
-      <h1 className="text-2xl font-extrabold mb-6">Все пользователи</h1>
-      <div className="flex flex-wrap gap-2 mb-4 items-center">
-        <input
-          className="border rounded px-3 py-2"
-          placeholder="Поиск по ФИО..."
-          value={search}
-          onChange={e => setSearch(e.target.value)}
-        />
-        <select
-          className="border rounded px-3 py-2"
-          value={filterClub}
-          onChange={e => setFilterClub(e.target.value)}
-        >
-          <option value="">Клуб</option>
-          {clubs.map((club: any) => (
-            <option key={club._id || club.name} value={club.name}>{club.name}</option>
-          ))}
-        </select>
-        <select
-          className="border rounded px-3 py-2"
-          value={filterGender}
-          onChange={e => setFilterGender(e.target.value)}
-        >
-          <option value="">Пол</option>
-          <option value="М">М</option>
-          <option value="Ж">Ж</option>
-        </select>
-        <input
-          className="border rounded px-3 py-2"
-          placeholder="Год рождения"
-          value={filterBirthYear}
-          onChange={e => setFilterBirthYear(e.target.value)}
-          type="number"
-        />
-        <button
-          className="flex items-center gap-1 px-3 py-2 bg-green-600 text-white rounded"
-          onClick={() => setShowCreateModal(true)}
-        >
-          <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 4v16m8-8H4" /></svg>
-           
-        </button>
+      <div className="flex items-center justify-between mb-6">
+        <h1 className="text-2xl font-extrabold">Игроки</h1>
+        <Button onClick={() => setShowCreateModal(true)}>
+          <FaPlus /> Добавить
+        </Button>
       </div>
-      <div className="overflow-x-auto">
-        <table className="min-w-full bg-white rounded shadow">
-          <thead>
-            <tr>
-              <th className="p-2 border-b">Аватар</th>
-              <th className="p-2 border-b">ФИО</th>
-              <th className="p-2 border-b">Год рождения</th>
-              <th className="p-2 border-b">Пол</th>
-              <th className="p-2 border-b">Клуб</th>
-              <th className="p-2 border-b">Действия</th>
-            </tr>
-          </thead>
-          <tbody>
-            {filteredPlayers().map(p => (
-              <tr key={p._id} className="border-b hover:bg-gray-50">
-                <td className="p-2 text-center">
-                  <PlayerAvatarEditor player={p} accessToken={accessToken} onAvatarChanged={() => getPlayers().then(setPlayers)} />
-                </td>
-                <td className="p-2">{p.fullName}</td>
-                <td className="p-2">{p.birthYear}</td>
-                <td className="p-2">{p.gender}</td>
-                <td className="p-2">{p.club}</td>
-                
-                <td className="p-2">
-                  <button
-                    className="px-3 py-1 bg-yellow-500 text-white rounded flex items-center justify-center"
-                    onClick={() => startEditPlayer(p)}
-                    title="Редактировать"
-                  >
-                    <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15.232 5.232l3.536 3.536M9 13l6-6m2 2l-6 6m2-2l-6 6m2-2l6-6" /><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M16.5 3.5a2.121 2.121 0 113 3L7 19.5 3 21l1.5-4L16.5 3.5z" /></svg>
-                  </button>
-                </td>
-              </tr>
+
+      {/* Фильтры */}
+      <Card className="mb-4">
+        <div className="p-3 flex flex-wrap gap-2 items-center">
+          <input
+            className={`${inputCls} flex-1 min-w-[180px]`}
+            placeholder="Поиск по ФИО..."
+            value={search}
+            onChange={(e) => setSearch(e.target.value)}
+          />
+          <select className={inputCls} value={filterClub} onChange={(e) => setFilterClub(e.target.value)}>
+            <option value="">Все клубы</option>
+            {clubs.map((club: any) => (
+              <option key={club._id || club.name} value={club.name}>{club.name}</option>
             ))}
-          </tbody>
-        </table>
-      </div>
+          </select>
+          <select className={inputCls} value={filterGender} onChange={(e) => setFilterGender(e.target.value)}>
+            <option value="">Любой пол</option>
+            <option value="М">М</option>
+            <option value="Ж">Ж</option>
+          </select>
+          <input
+            className={`${inputCls} w-32`}
+            placeholder="Год"
+            value={filterBirthYear}
+            onChange={(e) => setFilterBirthYear(e.target.value)}
+            type="number"
+          />
+        </div>
+      </Card>
+
+      {loading ? (
+        <div className="space-y-2">
+          {Array.from({ length: 5 }).map((_, i) => (
+            <Skeleton key={i} className="h-14 w-full" />
+          ))}
+        </div>
+      ) : filteredPlayers().length === 0 ? (
+        <div className="text-center py-12 text-content-muted">
+          <div className="text-5xl mb-3">🎾</div>
+          <p>Игроки не найдены</p>
+        </div>
+      ) : (
+        <Card className="overflow-hidden">
+          <div className="overflow-x-auto">
+            <table className="min-w-full">
+              <thead className="bg-surface-muted">
+                <tr>
+                  <th className="p-3 text-left text-xs font-semibold text-content-muted uppercase">Аватар</th>
+                  <th className="p-3 text-left text-xs font-semibold text-content-muted uppercase">ФИО</th>
+                  <th className="p-3 text-left text-xs font-semibold text-content-muted uppercase">Год</th>
+                  <th className="p-3 text-left text-xs font-semibold text-content-muted uppercase">Пол</th>
+                  <th className="p-3 text-left text-xs font-semibold text-content-muted uppercase">Клуб</th>
+                  <th className="p-3 text-left text-xs font-semibold text-content-muted uppercase">Действия</th>
+                </tr>
+              </thead>
+              <tbody className="divide-y divide-surface-border">
+                {filteredPlayers().map((p) => (
+                  <tr key={p._id} className="hover:bg-surface-muted/50 transition-colors">
+                    <td className="p-3">
+                      <PlayerAvatarEditor
+                        player={p}
+                        accessToken={accessToken}
+                        onAvatarChanged={() => getPlayers().then(setPlayers)}
+                      />
+                    </td>
+                    <td className="p-3 font-medium text-content">{p.fullName}</td>
+                    <td className="p-3 text-content-muted">{p.birthYear}</td>
+                    <td className="p-3 text-content-muted">{p.gender}</td>
+                    <td className="p-3 text-content-muted">{p.club}</td>
+                    <td className="p-3">
+                      <Button variant="outline" size="sm" onClick={() => startEditPlayer(p)} title="Редактировать">
+                        <FaEdit />
+                      </Button>
+                    </td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+        </Card>
+      )}
+
+      {/* Модалка редактирования */}
       {editingPlayer && (
-        <div className="fixed inset-0 bg-black bg-opacity-30 flex items-center justify-center z-50">
-          <div className="bg-white p-6 rounded shadow-lg min-w-[320px]">
-            <h2 className="text-lg font-bold mb-4">Редактировать игрока</h2>
-            <div className="mb-2">
-              <label className="block text-sm">ФИО</label>
-              <input
-                className="border rounded px-2 py-1 w-full"
-                value={editForm.fullName}
-                onChange={e => setEditForm({ ...editForm, fullName: e.target.value })}
-              />
+        <Modal onClose={() => setEditingPlayer(null)} title="Редактировать игрока">
+          <div className="space-y-3">
+            <div>
+              <label className={labelCls}>ФИО</label>
+              <input className={`${inputCls} w-full`} value={editForm.fullName} onChange={(e) => setEditForm({ ...editForm, fullName: e.target.value })} />
             </div>
-            <div className="mb-2">
-              <label className="block text-sm">Год рождения</label>
-              <input
-                className="border rounded px-2 py-1 w-full"
-                value={editForm.birthYear}
-                onChange={e => setEditForm({ ...editForm, birthYear: e.target.value })}
-                type="number"
-              />
+            <div>
+              <label className={labelCls}>Год рождения</label>
+              <input className={`${inputCls} w-full`} type="number" value={editForm.birthYear} onChange={(e) => setEditForm({ ...editForm, birthYear: e.target.value })} />
             </div>
-            <div className="mb-2">
-              <label className="block text-sm">Пол</label>
-              <select
-                className="border rounded px-2 py-1 w-full"
-                value={editForm.gender}
-                onChange={e => setEditForm({ ...editForm, gender: e.target.value })}
-              >
+            <div>
+              <label className={labelCls}>Пол</label>
+              <select className={`${inputCls} w-full`} value={editForm.gender} onChange={(e) => setEditForm({ ...editForm, gender: e.target.value })}>
                 <option value="">Выбрать</option>
                 <option value="М">М</option>
                 <option value="Ж">Ж</option>
               </select>
             </div>
-            <div className="mb-4">
-              <label className="block text-sm">Клуб</label>
-              <input
-                className="border rounded px-2 py-1 w-full"
-                value={editForm.club}
-                onChange={e => setEditForm({ ...editForm, club: e.target.value })}
-                list="clubs-list"
-              />
+            <div>
+              <label className={labelCls}>Клуб</label>
+              <input className={`${inputCls} w-full`} value={editForm.club} onChange={(e) => setEditForm({ ...editForm, club: e.target.value })} list="clubs-list" />
               <datalist id="clubs-list">
                 {clubs.map((club: any) => (
                   <option key={club._id || club.name} value={club.name} />
                 ))}
               </datalist>
             </div>
-            <div className="flex gap-2 justify-end">
-              <button className="px-4 py-1 bg-gray-300 rounded" onClick={cancelEdit}>Отмена</button>
-              <button className="px-4 py-1 bg-blue-600 text-white rounded" onClick={saveEdit}>Сохранить</button>
+            <div className="flex gap-2 justify-end pt-2">
+              <Button variant="ghost" onClick={() => setEditingPlayer(null)}>Отмена</Button>
+              <Button onClick={saveEdit} disabled={saving}>{saving ? 'Сохранение…' : 'Сохранить'}</Button>
             </div>
           </div>
-        </div>
+        </Modal>
       )}
+
+      {/* Модалка создания */}
       {showCreateModal && (
-        <div className="fixed inset-0 bg-black bg-opacity-40 flex items-center justify-center z-50">
-          <div className="bg-white p-6 rounded shadow-lg min-w-[340px] relative">
-            <button className="absolute top-2 right-2 text-gray-500" onClick={() => setShowCreateModal(false)}>&times;</button>
-            <h2 className="text-lg font-bold mb-4 text-center">Добавить игрока</h2>
-            <div className="mb-2">
-              <label className="block text-sm">ФИО</label>
-              <input
-                className="border rounded px-2 py-1 w-full"
-                value={createForm.fullName}
-                onChange={e => setCreateForm({ ...createForm, fullName: e.target.value })}
-              />
+        <Modal onClose={() => setShowCreateModal(false)} title="Добавить игрока">
+          <div className="space-y-3">
+            <div>
+              <label className={labelCls}>ФИО</label>
+              <input className={`${inputCls} w-full`} value={createForm.fullName} onChange={(e) => setCreateForm({ ...createForm, fullName: e.target.value })} />
             </div>
-            <div className="mb-2">
-              <label className="block text-sm">Год рождения</label>
-              <input
-                className="border rounded px-2 py-1 w-full"
-                value={createForm.birthYear}
-                onChange={e => setCreateForm({ ...createForm, birthYear: e.target.value })}
-                type="number"
-              />
+            <div>
+              <label className={labelCls}>Год рождения</label>
+              <input className={`${inputCls} w-full`} type="number" value={createForm.birthYear} onChange={(e) => setCreateForm({ ...createForm, birthYear: e.target.value })} />
             </div>
-            <div className="mb-2">
-              <label className="block text-sm">Пол</label>
-              <select
-                className="border rounded px-2 py-1 w-full"
-                value={createForm.gender}
-                onChange={e => setCreateForm({ ...createForm, gender: e.target.value })}
-              >
+            <div>
+              <label className={labelCls}>Пол</label>
+              <select className={`${inputCls} w-full`} value={createForm.gender} onChange={(e) => setCreateForm({ ...createForm, gender: e.target.value })}>
                 <option value="">Выбрать</option>
                 <option value="М">М</option>
                 <option value="Ж">Ж</option>
               </select>
             </div>
-            <div className="mb-4">
-              <label className="block text-sm">Клуб</label>
-              <input
-                className="border rounded px-2 py-1 w-full"
-                value={createForm.club}
-                onChange={e => setCreateForm({ ...createForm, club: e.target.value })}
-                list="clubs-list-create"
-              />
+            <div>
+              <label className={labelCls}>Клуб</label>
+              <input className={`${inputCls} w-full`} value={createForm.club} onChange={(e) => setCreateForm({ ...createForm, club: e.target.value })} list="clubs-list-create" />
               <datalist id="clubs-list-create">
                 {clubs.map((club: any) => (
                   <option key={club._id || club.name} value={club.name} />
                 ))}
               </datalist>
             </div>
-            <div className="flex gap-2 justify-end">
-              <button className="px-4 py-1 bg-gray-300 rounded" onClick={() => setShowCreateModal(false)}>Отмена</button>
-              <button className="px-4 py-1 bg-green-600 text-white rounded" onClick={handleCreatePlayer} disabled={creating}>Сохранить</button>
+            <div className="flex gap-2 justify-end pt-2">
+              <Button variant="ghost" onClick={() => setShowCreateModal(false)}>Отмена</Button>
+              <Button variant="success" onClick={handleCreatePlayer} disabled={creating}>{creating ? 'Создание…' : 'Создать'}</Button>
             </div>
           </div>
-        </div>
+        </Modal>
       )}
     </main>
   );
-} 
+}
+
+function Modal({ children, onClose, title }: { children: React.ReactNode; onClose: () => void; title: string }) {
+  return (
+    <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4" onClick={onClose}>
+      <Card className="p-6 min-w-[320px] max-w-md w-full" elevated>
+        <div onClick={(e) => e.stopPropagation()}>
+          <div className="flex items-center justify-between mb-4">
+            <h2 className="text-lg font-bold">{title}</h2>
+            <button onClick={onClose} className="text-content-muted hover:text-content" aria-label="Закрыть">
+              <FaTimes />
+            </button>
+          </div>
+          {children}
+        </div>
+      </Card>
+    </div>
+  );
+}

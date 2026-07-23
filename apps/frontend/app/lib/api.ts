@@ -213,6 +213,61 @@ export async function getGroupMatches(groupId: string) {
   return res.json();
 }
 
+export async function getMatch(id: string) {
+  const res = await fetch(`${API_URL}/matches/${id}`);
+  if (!res.ok) throw new Error('Ошибка загрузки матча');
+  return res.json();
+}
+
+export async function addMatch(groupId: string, data: any, accessToken?: string) {
+  const res = await fetch(`${API_URL}/groups/${groupId}/matches`, {
+    method: 'POST',
+    headers: {
+      'Content-Type': 'application/json',
+      ...(accessToken ? { Authorization: `Bearer ${accessToken}` } : {}),
+    },
+    body: JSON.stringify(data),
+  });
+  if (!res.ok) throw new Error('Ошибка добавления матча');
+  return res.json();
+}
+
+export async function updateMatch(groupId: string, matchId: string, data: any, accessToken?: string) {
+  const res = await fetch(`${API_URL}/groups/${groupId}/matches/${matchId}`, {
+    method: 'PUT',
+    headers: {
+      'Content-Type': 'application/json',
+      ...(accessToken ? { Authorization: `Bearer ${accessToken}` } : {}),
+    },
+    body: JSON.stringify(data),
+  });
+  if (!res.ok) throw new Error('Ошибка обновления матча');
+  return res.json();
+}
+
+export async function deleteMatch(groupId: string, matchId: string, accessToken?: string) {
+  const res = await fetch(`${API_URL}/groups/${groupId}/matches/${matchId}`, {
+    method: 'DELETE',
+    headers: {
+      ...(accessToken ? { Authorization: `Bearer ${accessToken}` } : {}),
+    },
+  });
+  if (!res.ok) throw new Error('Ошибка удаления матча');
+  return res.json();
+}
+
+export async function generateMatches(groupId: string, accessToken?: string) {
+  const res = await fetch(`${API_URL}/groups/${groupId}/generate-matches`, {
+    method: 'POST',
+    headers: {
+      'Content-Type': 'application/json',
+      ...(accessToken ? { Authorization: `Bearer ${accessToken}` } : {}),
+    },
+  });
+  if (!res.ok) throw new Error('Ошибка генерации матчей');
+  return res.json();
+}
+
 export async function uploadPlayerAvatar(playerId: string, file: File, accessToken?: string) {
   const formData = new FormData();
   formData.append('avatar', file);

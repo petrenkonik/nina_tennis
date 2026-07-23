@@ -3,6 +3,8 @@ import { InjectModel } from '@nestjs/mongoose';
 import { Model, Types } from 'mongoose';
 import { GroupDocument } from './group.schema';
 import { JwtAuthGuard } from '../auth/guards/jwt-auth.guard';
+import { RolesGuard } from '../auth/guards/roles.guard';
+import { Roles } from '../auth/decorators/roles.decorator';
 import { MatchDocument } from './match.schema';
 
 /**
@@ -98,19 +100,22 @@ export class GroupsController {
   }
 
   @Post()
-  @UseGuards(JwtAuthGuard)
+  @UseGuards(JwtAuthGuard, RolesGuard)
+  @Roles('admin')
   async create(@Body() data: any) {
     return this.groupModel.create(data);
   }
 
   @Put(':id')
-  @UseGuards(JwtAuthGuard)
+  @UseGuards(JwtAuthGuard, RolesGuard)
+  @Roles('admin')
   async update(@Param('id') id: string, @Body() data: any) {
     return this.groupModel.findByIdAndUpdate(id, data, { new: true }).exec();
   }
 
   @Delete(':id')
-  @UseGuards(JwtAuthGuard)
+  @UseGuards(JwtAuthGuard, RolesGuard)
+  @Roles('admin')
   async delete(@Param('id') id: string) {
     return this.groupModel.findByIdAndDelete(id).exec();
   }
@@ -122,7 +127,8 @@ export class GroupsController {
   }
 
   @Post(':id/matches')
-  @UseGuards(JwtAuthGuard)
+  @UseGuards(JwtAuthGuard, RolesGuard)
+  @Roles('admin')
   async addMatch(@Param('id') id: string, @Body() data: any) {
     const match = await this.matchModel.create(data);
     await this.groupModel.findByIdAndUpdate(id, { $push: { matches: match._id } });
@@ -130,20 +136,23 @@ export class GroupsController {
   }
 
   @Put(':groupId/matches/:matchId')
-  @UseGuards(JwtAuthGuard)
+  @UseGuards(JwtAuthGuard, RolesGuard)
+  @Roles('admin')
   async updateMatch(@Param('groupId') groupId: string, @Param('matchId') matchId: string, @Body() data: any) {
     return this.matchModel.findByIdAndUpdate(matchId, data, { new: true });
   }
 
   @Delete(':groupId/matches/:matchId')
-  @UseGuards(JwtAuthGuard)
+  @UseGuards(JwtAuthGuard, RolesGuard)
+  @Roles('admin')
   async deleteMatch(@Param('groupId') groupId: string, @Param('matchId') matchId: string) {
     await this.groupModel.findByIdAndUpdate(groupId, { $pull: { matches: matchId } });
     return this.matchModel.findByIdAndDelete(matchId);
   }
 
   @Post(':id/generate-matches')
-  @UseGuards(JwtAuthGuard)
+  @UseGuards(JwtAuthGuard, RolesGuard)
+  @Roles('admin')
   async generateMatches(@Param('id') id: string) {
     const group = await this.groupModel.findById(id).populate('players').exec();
     if (!group) throw new Error('Group not found');

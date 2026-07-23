@@ -2,6 +2,7 @@ import Link from 'next/link';
 import { usePathname, useRouter } from 'next/navigation';
 import { signOut } from 'next-auth/react';
 import React, { useState } from 'react';
+import { ThemeToggle } from 'components/ui/ThemeToggle';
 
 const adminMenu = [
   { href: '/admin/tournaments', label: 'Турниры' },
@@ -31,9 +32,10 @@ export default function AdminMenu({ className = "" }: { className?: string }) {
             {item.label}
           </Link>
         ))}
+        <ThemeToggle className="ml-auto" />
         <button
           onClick={handleLogout}
-          className="ml-auto px-3 py-2 text-sm text-gray-500 hover:text-red-600 font-medium border-b-2 border-transparent"
+          className="px-3 py-2 text-sm text-gray-500 hover:text-red-600 font-medium border-b-2 border-transparent"
         >
           Выйти
         </button>
