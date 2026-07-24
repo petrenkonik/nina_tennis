@@ -10,7 +10,13 @@
  * отключить "Confirm email" (чтобы signIn работал сразу после signUp).
  */
 import 'dotenv/config';
+import { config } from 'dotenv';
+import { resolve } from 'path';
 import { createClient } from '@supabase/supabase-js';
+
+// Next.js автоматически читает .env.local при запуске; tsx этого не делает.
+// Подгружаем явно, чтобы seed работал из коробки.
+config({ path: resolve(__dirname, '..', '.env.local') });
 
 const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL!;
 const publishableKey =
@@ -27,7 +33,7 @@ const supabase = createClient(supabaseUrl, publishableKey, {
 });
 
 const ADMIN_EMAIL = 'admin@example.com';
-const ADMIN_PASSWORD = 'admin';
+const ADMIN_PASSWORD = 'admin123'; // минимум 6 символов — требование Supabase Auth
 
 async function clearAll() {
   // Справочники и матчи (FK-каскады почистят зависимое).
@@ -44,36 +50,70 @@ async function clearAll() {
   console.log('Демо-данные очищены');
 }
 
-async function ensureAdmin() {
+async function ensureAdmin(): Promise<string | undefined> {
   // Регистрируем admin через Supabase Auth → триггер создаст profile (первый = admin).
-  // signUp идемпотентен по email (вернёт существующего, если включён Confirm email).
-  const { data, error } = await supabase.auth.signUp({
+  // signUp может вернуть ok даже для существующего email — это не гарантия сессии.
+  const { error: suErr } = await supabase.auth.signUp({
     email: ADMIN_EMAIL,
     password: ADMIN_PASSWORD,
     options: { data: { first_name: 'Admin', last_name: 'User' } },
   });
-  if (error) {
-    console.warn('signUp admin:', error.message, '— возможно уже существует');
+  if (suErr) console.warn('signUp admin:', suErr.message, '— пробуем signIn');
+
+  // ВАЖНО: signUp НЕ устанавливает сессию для запросов к БД при persistSession:false,
+  // и не работает если аккаунт уже существует. Поэтому ВСЕГДА явно входим.
+  const res = await supabase.auth.signInWithPassword({
+    email: ADMIN_EMAIL,
+    password: ADMIN_PASSWORD,
+  });
+  if (res.error || !res.data.user) {
+    console.warn('signIn admin:', res.error?.message || 'нет user');
+    return undefined;
   }
-  return data?.user?.id;
+  const uid = res.data.user.id;
+
+  // Гарантируем role=admin в profile (на случай, если аккаунт создан раньше
+  // или триггер отработал не как «первый»). Залогиненный пользователь меняет свой profile.
+  await supabase.from('profiles').upsert(
+    {
+      id: uid,
+      email: ADMIN_EMAIL,
+      role: 'admin',
+      first_name: 'Admin',
+      last_name: 'User',
+    },
+    { onConflict: 'id' },
+  );
+  return uid;
 }
 
 async function seed() {
-  await clearAll();
-
   const adminId = await ensureAdmin();
+  if (!adminId) {
+    console.error('Не удалось авторизоваться под admin — seed не сможет писать данные (RLS требует is_admin).');
+    console.error(`Войдите вручную как ${ADMIN_EMAIL} / ${ADMIN_PASSWORD} или удалите аккаунт и перезапустите.`);
+    process.exit(1);
+  }
+
+  // Очистку делаем ПОСЛЕ входа — DELETE защищён RLS is_admin().
+  await clearAll();
 
   // --- клубы ---
   const clubNames = ['Победа', 'Олимп', 'Геленджик', 'Анапа'];
-  const { data: clubs } = await supabase
+  const clubsRes = await supabase
     .from('clubs')
     .insert(clubNames.map((name) => ({ name })))
     .select('id, name');
+  if (clubsRes.error) {
+    console.error('insert clubs ошибка:', clubsRes.error.message, '— проверьте, что залогинены как admin (RLS is_admin).');
+    process.exit(1);
+  }
+  const clubs = clubsRes.data!;
 
   // --- игроки (37) ---
   const playersInput = [];
   for (let i = 1; i <= 37; i++) {
-    const club = clubs![i % clubs!.length];
+    const club = clubs[i % clubs.length];
     playersInput.push({
       full_name: `Игрок${i} Фамилия${i}`,
       birth_year: 2000 + (i % 10),

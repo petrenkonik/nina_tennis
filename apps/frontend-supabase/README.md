@@ -38,14 +38,14 @@ Secret/service-role ключ **не нужен** — все мутации ид�
 ### 4. Установка и seed
 ```bash
 npm install
-npm run seed     # демо-данные: admin@example.com/admin, клубы, 37 игроков, турниры, матчи
+npm run seed     # демо-данные: admin@example.com/admin123, клубы, 37 игроков, турниры, матчи
 ```
 
 ### 5. Запуск
 ```bash
 npm run dev      # http://localhost:3120
 ```
-Логин: `admin@example.com` / пароль: `admin`.
+Логин: `admin@example.com` / пароль: `admin123` (минимум 6 символов — требование Supabase Auth).
 
 ## Архитектура
 
