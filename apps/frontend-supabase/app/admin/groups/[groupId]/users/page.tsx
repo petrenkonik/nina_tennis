@@ -1,7 +1,6 @@
 "use client";
 import React, { useEffect, useMemo, useState } from 'react';
 import { useParams, useRouter } from 'next/navigation';
-import { useSession } from 'next-auth/react';
 import {
   getGroupById,
   getPlayers,
@@ -25,9 +24,7 @@ import {
 export default function GroupUsersEditorPage() {
   const { groupId: rawGroupId } = useParams();
   const groupId = Array.isArray(rawGroupId) ? rawGroupId[0] : rawGroupId;
-  const { data: session } = useSession();
-  const accessToken = session?.accessToken;
-  const router = useRouter();
+      const router = useRouter();
 
   const [group, setGroup] = useState<any>(null);
   const [players, setPlayers] = useState<any[]>([]);
@@ -114,7 +111,7 @@ export default function GroupUsersEditorPage() {
     setSaving(true);
     setError('');
     try {
-      await updateGroup(groupId, { ...group, seededPlayers: newSeeds }, accessToken);
+      await updateGroup(groupId, { ...group, seededPlayers: newSeeds });
       setSaved(true);
       await fetchData();
     } catch (e: any) {
@@ -132,7 +129,6 @@ export default function GroupUsersEditorPage() {
       await updateGroup(
         groupId,
         { ...group, players: [...(group.players || []), addPlayerId] },
-        accessToken,
       );
       setAddPlayerId('');
       setSearch('');
@@ -155,7 +151,6 @@ export default function GroupUsersEditorPage() {
       await updateGroup(
         groupId,
         { ...group, players: updatedPlayers, seededPlayers: updatedSeeds },
-        accessToken,
       );
       await fetchData();
     } catch (e: any) {
@@ -209,11 +204,10 @@ export default function GroupUsersEditorPage() {
     e.preventDefault();
     setSaving(true);
     try {
-      const created = await createPlayer(newPlayer, accessToken);
+      const created = await createPlayer(newPlayer);
       await updateGroup(
         groupId,
         { ...group, players: [...(group.players || []), created._id] },
-        accessToken,
       );
       setShowNewPlayerForm(false);
       setNewPlayer({ fullName: '', gender: '', birthYear: '', club: '' });

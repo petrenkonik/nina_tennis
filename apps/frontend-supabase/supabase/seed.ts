@@ -1,28 +1,36 @@
 /**
  * Seed демо-данных для Supabase-версии.
- * Перенос apps/backend/src/seed.ts под Supabase Postgres.
+ * Перенос apps/backend/src/seed.ts под Supabase Postgres + Supabase Auth.
  *
  * Запуск: npm run seed
- * Требует .env.local с SUPABASE_URL и SUPABASE_SERVICE_ROLE_KEY (или переменные окружения).
+ * Требует NEXT_PUBLIC_SUPABASE_URL и NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY (publishable)
+ * в .env.local — service-role (secret) ключ НЕ нужен.
+ *
+ * ПРЕДВАРИТЕЛЬНО: в Supabase Dashboard → Authentication → Providers → Email
+ * отключить "Confirm email" (чтобы signIn работал сразу после signUp).
  */
 import 'dotenv/config';
 import { createClient } from '@supabase/supabase-js';
-import bcrypt from 'bcryptjs';
 
-const supabaseUrl = process.env.SUPABASE_URL!;
-const supabaseKey = process.env.SUPABASE_SERVICE_ROLE_KEY!;
+const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL!;
+const publishableKey =
+  process.env.NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY || process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!;
 
-if (!supabaseUrl || !supabaseKey) {
-  console.error('Требуются SUPABASE_URL и SUPABASE_SERVICE_ROLE_KEY');
+if (!supabaseUrl || !publishableKey) {
+  console.error('Требуются NEXT_PUBLIC_SUPABASE_URL и NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY');
   process.exit(1);
 }
 
-const supabase = createClient(supabaseUrl, supabaseKey, {
+// publishable-клиент: все операции идут через RLS, секрет не нужен.
+const supabase = createClient(supabaseUrl, publishableKey, {
   auth: { persistSession: false, autoRefreshToken: false },
 });
 
+const ADMIN_EMAIL = 'admin@example.com';
+const ADMIN_PASSWORD = 'admin';
+
 async function clearAll() {
-  // Порядок важен из-за FK; но ON DELETE CASCADE почистит зависимые.
+  // Справочники и матчи (FK-каскады почистят зависимое).
   await supabase.from('match_judges').delete().neq('match_id', 0);
   await supabase.from('matches').delete().neq('id', 0);
   await supabase.from('group_seeds').delete().neq('group_id', 0);
@@ -32,21 +40,28 @@ async function clearAll() {
   await supabase.from('tournaments').delete().neq('id', 0);
   await supabase.from('players').delete().neq('id', 0);
   await supabase.from('clubs').delete().neq('id', 0);
-  await supabase.from('profiles').delete().neq('id', '00000000-0000-0000-0000-000000000000');
-  console.log('Таблицы очищены');
+  // profiles/auth.users не трогаем авт-удалением — admin-аккаунт создаётся заново.
+  console.log('Демо-данные очищены');
+}
+
+async function ensureAdmin() {
+  // Регистрируем admin через Supabase Auth → триггер создаст profile (первый = admin).
+  // signUp идемпотентен по email (вернёт существующего, если включён Confirm email).
+  const { data, error } = await supabase.auth.signUp({
+    email: ADMIN_EMAIL,
+    password: ADMIN_PASSWORD,
+    options: { data: { first_name: 'Admin', last_name: 'User' } },
+  });
+  if (error) {
+    console.warn('signUp admin:', error.message, '— возможно уже существует');
+  }
+  return data?.user?.id;
 }
 
 async function seed() {
   await clearAll();
 
-  // --- admin ---
-  const passwordHash = await bcrypt.hash('admin', 10);
-  const { data: admin } = await supabase
-    .from('profiles')
-    .insert({ email: 'admin', password_hash: passwordHash, role: 'admin', first_name: 'Admin', last_name: 'User' })
-    .select('id')
-    .single();
-  console.log('Создан admin:', admin?.id);
+  const adminId = await ensureAdmin();
 
   // --- клубы ---
   const clubNames = ['Победа', 'Олимп', 'Геленджик', 'Анапа'];
@@ -64,7 +79,6 @@ async function seed() {
       birth_year: 2000 + (i % 10),
       gender: i % 2 === 0 ? 'М' : 'Ж',
       club: club.name,
-      // Аватарка через ui-avatars (внешний URL, без скачивания файлов)
       photo_url: `https://ui-avatars.com/api/?name=${encodeURIComponent(`Игрок ${i}`)}&background=random&size=128`,
       rating: Math.floor(Math.random() * 1000),
     });
@@ -78,13 +92,11 @@ async function seed() {
   const group1Id = g1row!.id;
   const group2Id = g2row!.id;
 
-  // Игроки в группы
   const group1Players = playerIds.slice(0, 13);
   const group2Players = playerIds.slice(13, 37);
   await supabase.from('group_players').insert(group1Players.map((player_id) => ({ group_id: group1Id, player_id })));
   await supabase.from('group_players').insert(group2Players.map((player_id) => ({ group_id: group2Id, player_id })));
 
-  // Посев: первые 4 игрока каждой группы
   await supabase.from('group_seeds').insert(
     group1Players.slice(0, 4).map((player_id, idx) => ({ group_id: group1Id, player_id, seed: idx + 1 })),
   );
@@ -109,11 +121,10 @@ async function seed() {
     ])
     .select('id, name');
 
-  // Привязываем group1 и group2 к первому турниру
   const t1Id = tournaments![0].id;
   await supabase.from('groups').update({ tournament_id: t1Id }).in('id', [group1Id, group2Id]);
 
-  // --- матчи для group1 (3 раунда, как в оригинальном seed) ---
+  // --- матчи для group1 (3 раунда) ---
   const matchPlayers = group1Players.slice(0, 16);
   const r1: any[] = [];
   for (let i = 0; i < 8; i++) {
@@ -172,7 +183,8 @@ async function seed() {
 
   console.log('Seed завершён!');
   console.log(`Игроков: ${playerIds.length}, Турниров: ${tournaments!.length}`);
-  console.log('Логин: admin / пароль: admin');
+  console.log(`Логин: ${ADMIN_EMAIL} / пароль: ${ADMIN_PASSWORD}`);
+  if (adminId) console.log('admin id:', adminId);
 }
 
 seed().catch((e) => {

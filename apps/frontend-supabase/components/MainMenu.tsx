@@ -2,14 +2,14 @@
 import React from 'react';
 import Link from 'next/link';
 import { usePathname } from 'next/navigation';
-import { useSession } from 'next-auth/react';
+import { useSupabaseSession } from 'app/lib/useSupabaseSession';
 import { ThemeToggle } from 'components/ui/ThemeToggle';
 
 export default function MainMenu() {
   const pathname = usePathname();
-  const { data: session } = useSession();
-  const isAuth = !!session;
-  const isAdmin = isAuth && (session as any)?.user?.role === 'admin';
+  const { role, status } = useSupabaseSession();
+  const isAuth = status === 'authenticated';
+  const isAdmin = isAuth && role === 'admin';
   // Публичные пункты — видны всем; «Профиль» — только авторизованным;
   // «Админ» — только администраторам.
   const menu = [

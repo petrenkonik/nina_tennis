@@ -12,7 +12,6 @@ import {
   deleteTournament,
   getClubs,
 } from 'app/lib/api';
-import { useSession } from 'next-auth/react';
 import { useRouter } from 'next/navigation';
 import {
   formatDate,
@@ -33,9 +32,7 @@ function AdminTournamentsPage() {
   const [search, setSearch] = useState('');
   const [clubs, setClubs] = useState<{ _id: string; name: string }[]>([]);
   const [saving, setSaving] = useState(false);
-  const { data: session } = useSession();
-  const accessToken = session?.accessToken;
-  const router = useRouter();
+      const router = useRouter();
 
   async function fetchTournaments() {
     setLoading(true);
@@ -65,7 +62,7 @@ function AdminTournamentsPage() {
   }
   async function handleDelete(id: string, name: string) {
     if (!confirm(`Удалить турнир «${name}»?`)) return;
-    await deleteTournament(id, accessToken);
+    await deleteTournament(id);
     fetchTournaments();
   }
   async function handleSubmit(e: React.FormEvent) {
@@ -73,9 +70,9 @@ function AdminTournamentsPage() {
     setSaving(true);
     try {
       if (editId) {
-        await updateTournament(editId, form, accessToken);
+        await updateTournament(editId, form);
       } else {
-        await createTournament(form, accessToken);
+        await createTournament(form);
       }
       setShowForm(false);
       fetchTournaments();

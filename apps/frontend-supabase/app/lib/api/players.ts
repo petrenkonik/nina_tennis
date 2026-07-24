@@ -1,6 +1,6 @@
 'use server';
 
-import { supabaseAdmin } from '../supabase/admin';
+import { createSupabaseServer } from '../supabase/server';
 import { requireAdmin } from '../permissions';
 import { getCurrentUser } from '../session';
 import { toPlayer, toMatch } from '../transform';
@@ -8,7 +8,7 @@ import { toPlayer, toMatch } from '../transform';
 /** Игроки. Замена NestJS PlayersController. */
 
 export async function getPlayers() {
-  const { data, error } = await supabaseAdmin
+  const { data, error } = await (await createSupabaseServer())
     .from('players')
     .select('id, full_name, birth_year, gender, club, photo_url, rating')
     .order('full_name');
@@ -17,7 +17,7 @@ export async function getPlayers() {
 }
 
 export async function getPlayerById(id: string) {
-  const { data, error } = await supabaseAdmin
+  const { data, error } = await (await createSupabaseServer())
     .from('players')
     .select('id, full_name, birth_year, gender, club, photo_url, rating')
     .eq('id', id)
@@ -31,7 +31,7 @@ export async function getPlayerById(id: string) {
  * Замена /players/:id/matches.
  */
 export async function getPlayerMatches(id: string) {
-  const { data, error } = await supabaseAdmin
+  const { data, error } = await (await createSupabaseServer())
     .from('v_matches_full')
     .select('*')
     .or(`player1_id.eq.${id},player2_id.eq.${id}`)
@@ -43,7 +43,7 @@ export async function getPlayerMatches(id: string) {
 export async function createPlayer(data: any, _accessToken?: string) {
   const user = await getCurrentUser();
   requireAdmin(user);
-  const { data: row, error } = await supabaseAdmin
+  const { data: row, error } = await (await createSupabaseServer())
     .from('players')
     .insert({
       full_name: data.fullName,
@@ -62,7 +62,7 @@ export async function createPlayer(data: any, _accessToken?: string) {
 export async function updatePlayer(id: string, data: any, _accessToken?: string) {
   const user = await getCurrentUser();
   requireAdmin(user);
-  const { data: row, error } = await supabaseAdmin
+  const { data: row, error } = await (await createSupabaseServer())
     .from('players')
     .update({
       full_name: data.fullName,
@@ -82,7 +82,7 @@ export async function updatePlayer(id: string, data: any, _accessToken?: string)
 export async function deletePlayer(id: string, _accessToken?: string) {
   const user = await getCurrentUser();
   requireAdmin(user);
-  const { error } = await supabaseAdmin.from('players').delete().eq('id', id);
+  const { error } = await (await createSupabaseServer()).from('players').delete().eq('id', id);
   if (error) throw new Error('Ошибка удаления игрока');
   return { success: true };
 }
@@ -91,7 +91,7 @@ export async function deletePlayer(id: string, _accessToken?: string) {
  * Обновляет photo_url игрока. Используется Route Handler'ом загрузки аватара.
  */
 export async function setPlayerPhotoUrl(id: string, photoUrl: string | null) {
-  const { error } = await supabaseAdmin
+  const { error } = await (await createSupabaseServer())
     .from('players')
     .update({ photo_url: photoUrl })
     .eq('id', id);

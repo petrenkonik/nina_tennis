@@ -3,7 +3,6 @@ import React, { useEffect, useState } from 'react';
 import { getGroupById, getTournamentById, getGroupMatches, addMatch, updateMatch, deleteMatch, generateMatches } from 'app/lib/api';
 import AdminMenu from 'components/AdminMenu';
 import { useParams } from 'next/navigation';
-import { useSession } from 'next-auth/react';
 import GroupHeader from './GroupHeader';
 import Link from 'next/link';
 
@@ -25,9 +24,7 @@ const STATUS_LABELS: Record<string, string> = {
 
 export default function GroupBracketEditor() {
   const { groupId } = useParams() as { groupId: string };
-  const { data: session } = useSession();
-  const accessToken = (session as any)?.accessToken;
-  const [group, setGroup] = useState<any>(null);
+      const [group, setGroup] = useState<any>(null);
   const [matches, setMatches] = useState<any[]>([]);
   const [editingMatch, setEditingMatch] = useState<any>(null);
   const [players, setPlayers] = useState<any[]>([]);
@@ -59,7 +56,7 @@ export default function GroupBracketEditor() {
     if (!players.length) return;
     setSaving(true); setError('');
     try {
-      await generateMatches(groupId, accessToken);
+      await generateMatches(groupId);
       await refreshMatches();
     } catch (e: any) {
       setError(e.message || 'Ошибка генерации');
@@ -78,7 +75,7 @@ export default function GroupBracketEditor() {
         status: 'scheduled',
         court: '',
         score: '',
-      }, accessToken);
+      });
       setMatches([...matches, created]);
     } catch (e: any) {
       setError(e.message || 'Ошибка добавления матча');
@@ -108,7 +105,7 @@ export default function GroupBracketEditor() {
       if (editingMatch.scheduledAt) {
         payload.scheduledAt = new Date(editingMatch.scheduledAt).toISOString();
       }
-      const updated = await updateMatch(groupId, editingMatch._id, payload, accessToken);
+      const updated = await updateMatch(groupId, editingMatch._id, payload);
       setMatches(matches.map(m => String(m._id) === String(editingMatch._id) ? { ...m, ...updated, player1: editingMatch.player1, player2: editingMatch.player2 } : m));
       setEditingMatch(null);
     } catch (e: any) {
@@ -121,7 +118,7 @@ export default function GroupBracketEditor() {
   async function handleDeleteMatch(id: string) {
     setSaving(true); setError('');
     try {
-      await deleteMatch(groupId, id, accessToken);
+      await deleteMatch(groupId, id);
       setMatches(matches.filter(m => String(m._id) !== String(id)));
     } catch (e: any) {
       setError(e.message || 'Ошибка удаления матча');

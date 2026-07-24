@@ -4,8 +4,6 @@ import AdminMenu from 'components/AdminMenu';
 import { Button, Card, Skeleton } from 'components/ui';
 import { FaEdit, FaTrash, FaCheck, FaTimes, FaPlus } from 'react-icons/fa';
 import { getClubs, createClub, updateClub, deleteClub } from 'app/lib/api';
-import { useSession } from 'next-auth/react';
-
 export default function ClubsPage() {
   const [clubs, setClubs] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
@@ -13,10 +11,7 @@ export default function ClubsPage() {
   const [editName, setEditName] = useState('');
   const [newName, setNewName] = useState('');
   const [saving, setSaving] = useState(false);
-  const { data: session } = useSession();
-  const accessToken = session?.accessToken;
-
-  useEffect(() => {
+      useEffect(() => {
     getClubs().then((c) => {
       setClubs(c);
       setLoading(false);
@@ -36,7 +31,7 @@ export default function ClubsPage() {
   async function saveEdit(id: string) {
     setSaving(true);
     try {
-      await updateClub(id, { name: editName }, accessToken);
+      await updateClub(id, { name: editName });
       setClubs(await getClubs());
       setEditingId(null);
       setEditName('');
@@ -47,7 +42,7 @@ export default function ClubsPage() {
 
   async function handleDelete(id: string) {
     if (!confirm('Удалить клуб?')) return;
-    await deleteClub(id, accessToken);
+    await deleteClub(id);
     setClubs(await getClubs());
   }
 
@@ -55,7 +50,7 @@ export default function ClubsPage() {
     if (!newName.trim()) return;
     setSaving(true);
     try {
-      await createClub({ name: newName }, accessToken);
+      await createClub({ name: newName });
       setClubs(await getClubs());
       setNewName('');
     } finally {

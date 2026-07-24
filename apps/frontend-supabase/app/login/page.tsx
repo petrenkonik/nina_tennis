@@ -1,40 +1,43 @@
 "use client";
-import { signIn, useSession } from 'next-auth/react';
 import { useRouter, useSearchParams } from 'next/navigation';
 import React, { useState, useEffect, Suspense } from 'react';
+import { supabaseBrowser } from 'app/lib/supabase/browser';
+import { useSupabaseSession } from 'app/lib/useSupabaseSession';
 
 function LoginInner() {
-  const { data: session, status } = useSession();
+  const { role, status } = useSupabaseSession();
   const router = useRouter();
   const searchParams = useSearchParams();
   const next = searchParams.get('next');
-  const [username, setUsername] = useState('');
+  const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [error, setError] = useState('');
+  const [loading, setLoading] = useState(false);
 
   useEffect(() => {
-    if (status === 'loading' || !session) return;
+    if (status !== 'authenticated') return;
     // Если есть next (напр. /invite/<token>) — возвращаем туда после входа.
     if (next) {
       router.replace(next);
       return;
     }
-    if (session?.user?.role === 'admin') {
+    if (role === 'admin') {
       router.replace('/admin/tournaments');
-    } else if (session?.user?.role === 'referee') {
+    } else if (role === 'referee') {
       router.replace('/tournaments');
+    } else {
+      router.replace('/');
     }
-  }, [session, status, router, next]);
+  }, [role, status, router, next]);
 
   async function handleSubmit(e: React.FormEvent) {
     e.preventDefault();
     setError('');
-    const res = await signIn('credentials', {
-      username,
-      password,
-      redirect: false,
-    });
-    if (res?.error) setError('Неверный логин или пароль');
+    setLoading(true);
+    const { error } = await supabaseBrowser.auth.signInWithPassword({ email, password });
+    setLoading(false);
+    if (error) setError('Неверный логин или пароль');
+    // при успехе onAuthStateChange в хуке обновит status → сработает useEffect выше
   }
 
   return (
@@ -43,9 +46,10 @@ function LoginInner() {
         <h1 className="text-xl font-bold mb-4 text-center">Вход</h1>
         <input
           className="border rounded px-3 py-2 mb-2 w-full"
-          placeholder="Логин"
-          value={username}
-          onChange={e => setUsername(e.target.value)}
+          placeholder="Email"
+          type="email"
+          value={email}
+          onChange={e => setEmail(e.target.value)}
           required
         />
         <input
@@ -57,7 +61,13 @@ function LoginInner() {
           required
         />
         {error && <div className="text-red-500 mb-2 text-sm">{error}</div>}
-        <button type="submit" className="w-full bg-blue-600 text-white py-2 rounded font-semibold">Войти</button>
+        <button
+          type="submit"
+          disabled={loading}
+          className="w-full bg-blue-600 text-white py-2 rounded font-semibold disabled:opacity-50"
+        >
+          {loading ? 'Вход...' : 'Войти'}
+        </button>
       </form>
     </main>
   );
@@ -70,4 +80,4 @@ export default function LoginPage() {
       <LoginInner />
     </Suspense>
   );
-} 
+}

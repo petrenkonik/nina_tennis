@@ -3,7 +3,6 @@
 import React, { useEffect, useMemo, useState, useCallback, useRef } from 'react';
 import { useParams } from 'next/navigation';
 import Link from 'next/link';
-import { useSession } from 'next-auth/react';
 import {
   getGroupById,
   getGroupMatches,
@@ -27,10 +26,7 @@ export default function JudgeMatchPage() {
   const params = useParams();
   const groupId = Array.isArray(params.groupId) ? params.groupId[0] : params.groupId;
   const matchId = Array.isArray(params.matchId) ? params.matchId[0] : params.matchId;
-  const { data: session } = useSession();
-  const accessToken = (session as any)?.accessToken;
-
-  const [match, setMatch] = useState<Match | null>(null);
+      const [match, setMatch] = useState<Match | null>(null);
   const [group, setGroup] = useState<any>(null);
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
@@ -151,7 +147,7 @@ export default function JudgeMatchPage() {
       if (match.scheduledAt) payload.scheduledAt = new Date(match.scheduledAt).toISOString();
       if (status === 'finished' && winnerId) payload.playedAt = new Date().toISOString();
 
-      const updated = await updateMatch(groupId, matchId, payload, accessToken);
+      const updated = await updateMatch(groupId, matchId, payload);
       setMatch({ ...match, ...updated, player1, player2, groupId } as Match);
       setSaved(true);
       setConfirmFinish(false);
@@ -160,7 +156,7 @@ export default function JudgeMatchPage() {
     } finally {
       setSaving(false);
     }
-  }, [match, groupId, matchId, accessToken, winnerSide, player1, player2, history, scoring, serverSide, courtSide]);
+  }, [match, groupId, matchId, winnerSide, player1, player2, history, scoring, serverSide, courtSide]);
 
   // Автосохранение состояния (с дебаунсом): чтобы зритель на /m/:id видел очки
   // в реальном времени, а рефреш страницы судьи не сбрасывал счёт.
@@ -199,7 +195,7 @@ export default function JudgeMatchPage() {
         if (matchOver) payload.playedAt = new Date().toISOString();
       }
       try {
-        const updated = await updateMatch(groupId, matchId, payload, accessToken);
+        const updated = await updateMatch(groupId, matchId, payload);
         if (myToken === autosaveToken.current) {
           setMatch({ ...m, ...updated, player1, player2, groupId } as Match);
           setSaved(true);

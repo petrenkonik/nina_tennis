@@ -1,7 +1,7 @@
 import Link from 'next/link';
 import { usePathname, useRouter } from 'next/navigation';
-import { signOut } from 'next-auth/react';
 import React, { useState } from 'react';
+import { supabaseBrowser } from 'app/lib/supabase/browser';
 import { ThemeToggle } from 'components/ui/ThemeToggle';
 
 const adminMenu = [
@@ -16,7 +16,7 @@ export default function AdminMenu({ className = "" }: { className?: string }) {
   const router = useRouter();
   const [open, setOpen] = useState(false);
   async function handleLogout() {
-    await signOut({ redirect: false });
+    await supabaseBrowser.auth.signOut();
     router.replace('/login');
   }
   return (

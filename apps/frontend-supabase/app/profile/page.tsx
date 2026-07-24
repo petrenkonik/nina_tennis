@@ -3,12 +3,12 @@
 import React, { useEffect, useState } from 'react';
 import Link from 'next/link';
 import { useRouter } from 'next/navigation';
-import { useSession } from 'next-auth/react';
 import MainLayout from 'app/main-layout';
 import { Card, CardBody, Button, Skeleton } from 'components/ui';
 import { FaUser, FaSave, FaCheckCircle, FaExclamationTriangle, FaSignOutAlt } from 'react-icons/fa';
 import { getMyProfile, updateMyProfile } from 'app/lib/api';
-import { signOut } from 'next-auth/react';
+import { supabaseBrowser } from 'app/lib/supabase/browser';
+import { useSupabaseSession } from 'app/lib/useSupabaseSession';
 
 interface ProfileData {
   _id?: string;
@@ -19,9 +19,8 @@ interface ProfileData {
 }
 
 export default function ProfilePage() {
-  const { data: session, status } = useSession();
+  const { status } = useSupabaseSession();
   const router = useRouter();
-  const accessToken = (session as any)?.accessToken;
 
   const [profile, setProfile] = useState<ProfileData | null>(null);
   const [loading, setLoading] = useState(true);
@@ -37,12 +36,12 @@ export default function ProfilePage() {
 
   useEffect(() => {
     if (status === 'loading') return;
-    if (!session) {
+    if (status !== 'authenticated') {
       router.replace('/login?next=/profile');
       return;
     }
     setLoading(true);
-    getMyProfile(accessToken)
+    getMyProfile()
       .then((p) => {
         setProfile(p);
         setFirstName(p.firstName || '');
@@ -51,7 +50,7 @@ export default function ProfilePage() {
       })
       .catch((e) => setError(e.message || 'Ошибка загрузки профиля'))
       .finally(() => setLoading(false));
-  }, [session, status, accessToken, router]);
+  }, [status, router]);
 
   const handleSave = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -61,12 +60,10 @@ export default function ProfilePage() {
     try {
       const data: any = { firstName, lastName, email };
       if (password.trim()) data.password = password;
-      const updated = await updateMyProfile(data, accessToken);
+      const updated = await updateMyProfile(data);
       setProfile(updated);
       setPassword('');
       setSaved(true);
-      // Если сменили email — старый токен может стать невалидным после перелогина.
-      // Показываем успех; пользователь перезайдёт при желании.
     } catch (e: any) {
       setError(e.message || 'Ошибка сохранения');
     } finally {
@@ -75,7 +72,7 @@ export default function ProfilePage() {
   };
 
   const handleLogout = async () => {
-    await signOut({ redirect: false });
+    await supabaseBrowser.auth.signOut();
     router.replace('/login');
   };
 
@@ -87,7 +84,7 @@ export default function ProfilePage() {
     );
   }
 
-  if (!session) return null;
+  if (status !== 'authenticated') return null;
 
   const inputCls = 'border border-surface-border rounded-lg px-3 py-2 bg-surface-card text-content text-sm w-full focus:ring-2 focus:ring-brand-200 outline-none transition';
 

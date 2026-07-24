@@ -1,6 +1,6 @@
 'use server';
 
-import { supabaseAdmin } from '../supabase/admin';
+import { createSupabaseServer } from '../supabase/server';
 import { requireAdmin, requireAuth } from '../permissions';
 import { getCurrentUser } from '../session';
 import { toMatch } from '../transform';
@@ -23,14 +23,14 @@ export interface TournamentUI {
 
 /** Список турниров с кол-вом групп/игроков (аналог findAll с агрегацией). */
 export async function getTournaments(): Promise<TournamentUI[]> {
-  const { data: tournaments, error } = await supabaseAdmin
+  const { data: tournaments, error } = await (await createSupabaseServer())
     .from('tournaments')
     .select('id, name, start_date, end_date, club_id')
     .order('start_date', { ascending: false });
   if (error) throw new Error('Ошибка загрузки турниров');
 
   // Группы по турнирам
-  const { data: groups } = await supabaseAdmin
+  const { data: groups } = await (await createSupabaseServer())
     .from('groups')
     .select('id, tournament_id');
   const groupsByTournament = new Map<string, string[]>();
@@ -45,7 +45,7 @@ export async function getTournaments(): Promise<TournamentUI[]> {
   const allGroupIds = (groups || []).map((g) => String(g.id));
   let playersByGroup = new Map<string, Set<string>>();
   if (allGroupIds.length) {
-    const { data: gp } = await supabaseAdmin
+    const { data: gp } = await (await createSupabaseServer())
       .from('group_players')
       .select('group_id, player_id')
       .in('group_id', allGroupIds);
@@ -77,7 +77,7 @@ export async function getTournaments(): Promise<TournamentUI[]> {
 }
 
 export async function getTournamentById(id: string): Promise<any> {
-  const { data: t, error } = await supabaseAdmin
+  const { data: t, error } = await (await createSupabaseServer())
     .from('tournaments')
     .select('id, name, start_date, end_date, club_id')
     .eq('id', id)
@@ -85,7 +85,7 @@ export async function getTournamentById(id: string): Promise<any> {
   if (error || !t) throw new Error('Ошибка загрузки турнира');
 
   // Группы турнира
-  const { data: groups } = await supabaseAdmin
+  const { data: groups } = await (await createSupabaseServer())
     .from('groups')
     .select('id, name')
     .eq('tournament_id', id);
@@ -106,7 +106,7 @@ export async function getTournamentById(id: string): Promise<any> {
  */
 export async function getTournamentMatches(id: string) {
   // Группы турнира
-  const { data: groups, error: gErr } = await supabaseAdmin
+  const { data: groups, error: gErr } = await (await createSupabaseServer())
     .from('groups')
     .select('id, name')
     .eq('tournament_id', id);
@@ -115,7 +115,7 @@ export async function getTournamentMatches(id: string) {
 
   let matches: any[] = [];
   if (groupIds.length) {
-    const { data: rows, error } = await supabaseAdmin
+    const { data: rows, error } = await (await createSupabaseServer())
       .from('v_matches_full')
       .select('*')
       .in('group_id', groupIds)
@@ -134,7 +134,7 @@ export async function createTournament(data: any, _accessToken?: string): Promis
   const user = await getCurrentUser();
   requireAdmin(user);
 
-  const { data: row, error } = await supabaseAdmin
+  const { data: row, error } = await (await createSupabaseServer())
     .from('tournaments')
     .insert({
       name: data.name,
@@ -160,7 +160,7 @@ export async function updateTournament(id: string, data: any, _accessToken?: str
   const user = await getCurrentUser();
   requireAdmin(user);
 
-  const { data: row, error } = await supabaseAdmin
+  const { data: row, error } = await (await createSupabaseServer())
     .from('tournaments')
     .update({
       name: data.name,
@@ -185,7 +185,7 @@ export async function updateTournament(id: string, data: any, _accessToken?: str
 export async function deleteTournament(id: string, _accessToken?: string): Promise<{ success: boolean }> {
   const user = await getCurrentUser();
   requireAdmin(user);
-  const { error } = await supabaseAdmin.from('tournaments').delete().eq('id', id);
+  const { error } = await (await createSupabaseServer()).from('tournaments').delete().eq('id', id);
   if (error) throw new Error('Ошибка удаления турнира');
   return { success: true };
 }
@@ -197,9 +197,10 @@ export async function deleteTournament(id: string, _accessToken?: string): Promi
  */
 export async function getGroupBracket(groupId: string): Promise<{ rounds: any[] }> {
   // Матчи группы + посев
+  const supabase = await createSupabaseServer();
   const [{ data: rows }, { data: seeds }] = await Promise.all([
-    supabaseAdmin.from('v_matches_full').select('*').eq('group_id', groupId).order('round', { ascending: true }),
-    supabaseAdmin.from('group_seeds').select('player_id, seed').eq('group_id', groupId),
+    supabase.from('v_matches_full').select('*').eq('group_id', groupId).order('round', { ascending: true }),
+    supabase.from('group_seeds').select('player_id, seed').eq('group_id', groupId),
   ]);
 
   if (!rows || !rows.length) return { rounds: [] };

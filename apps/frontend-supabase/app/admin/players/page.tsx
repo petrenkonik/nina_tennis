@@ -4,13 +4,10 @@ import { getPlayers, getClubs, createPlayer } from 'app/lib/api';
 import AdminMenu from 'components/AdminMenu';
 import { Button, Card, Skeleton } from 'components/ui';
 import { FaPlus, FaEdit, FaTimes } from 'react-icons/fa';
-import { useSession } from 'next-auth/react';
 import PlayerAvatarEditor from './PlayerAvatarEditor';
 
 export default function PlayersPage() {
-  const { data: session } = useSession();
-  const accessToken = session?.accessToken;
-  const [players, setPlayers] = useState<any[]>([]);
+      const [players, setPlayers] = useState<any[]>([]);
   const [clubs, setClubs] = useState<any[]>([]);
   const [search, setSearch] = useState('');
   const [filterClub, setFilterClub] = useState('');
@@ -47,7 +44,7 @@ export default function PlayersPage() {
     const file = e.target.files?.[0];
     if (!file) return;
     const { uploadPlayerAvatar } = await import('app/lib/avatar');
-    await uploadPlayerAvatar(playerId, file, accessToken);
+    await uploadPlayerAvatar(playerId, file);
     getPlayers().then(setPlayers);
   }
 
@@ -66,7 +63,7 @@ export default function PlayersPage() {
     setSaving(true);
     try {
       const { updatePlayer } = await import('app/lib/api');
-      await updatePlayer(editingPlayer._id, editForm, accessToken);
+      await updatePlayer(editingPlayer._id, editForm);
       setEditingPlayer(null);
       setEditForm({});
       getPlayers().then(setPlayers);
@@ -78,7 +75,7 @@ export default function PlayersPage() {
   async function handleCreatePlayer() {
     setCreating(true);
     try {
-      await createPlayer(createForm, accessToken);
+      await createPlayer(createForm);
       setShowCreateModal(false);
       setCreateForm({ fullName: '', birthYear: '', gender: '', club: '' });
       getPlayers().then(setPlayers);
@@ -161,7 +158,6 @@ export default function PlayersPage() {
                     <td className="p-3">
                       <PlayerAvatarEditor
                         player={p}
-                        accessToken={accessToken}
                         onAvatarChanged={() => getPlayers().then(setPlayers)}
                       />
                     </td>

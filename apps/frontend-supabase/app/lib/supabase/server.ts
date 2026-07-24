@@ -2,18 +2,18 @@ import { cookies } from 'next/headers';
 import { createServerClient } from '@supabase/ssr';
 
 /**
- * Серверный клиент Supabase для чтения в Server Components.
- * Использует anon-ключ + cookies (для будущего перехода на нативный Supabase Auth).
- *
- * Сейчас auth живёт на next-auth (JWT в cookies next-auth), поэтому этот клиент
- * работает как anon: читает публичные данные через RLS. Для мутаций и операций,
- * требующих обхода RLS, используйте supabaseAdmin из ./admin.
+ * Серверный клиент Supabase: читает сессию Supabase Auth из cookies (@supabase/ssr).
+ * Используется в Server Components и Server Actions. auth.uid() работает в RLS →
+ * мутации безопасны через publishable-ключ + политики RLS.
  */
 export async function createSupabaseServer() {
   const cookieStore = await cookies();
+  const publishableKey =
+    process.env.NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY ||
+    process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY;
   return createServerClient(
     process.env.NEXT_PUBLIC_SUPABASE_URL!,
-    process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!,
+    publishableKey!,
     {
       cookies: {
         getAll() {

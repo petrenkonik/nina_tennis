@@ -1,19 +1,23 @@
-import { useSession } from 'next-auth/react';
 import { useRouter } from 'next/navigation';
 import React, { useEffect } from 'react';
+import { useSupabaseSession } from 'app/lib/useSupabaseSession';
 
+/**
+ * Защита клиентских разделов: пускает только админа.
+ * Дополнительный слой к серверной проверке в Server Actions и middleware.
+ */
 export default function RequireAdmin({ children }: { children: React.ReactNode }) {
-  const { data: session, status } = useSession();
+  const { role, status } = useSupabaseSession();
   const router = useRouter();
 
   useEffect(() => {
     if (status === 'loading') return;
-    if (!session || session.user.role !== 'admin') {
+    if (status !== 'authenticated' || role !== 'admin') {
       router.replace('/login');
     }
-  }, [session, status, router]);
+  }, [role, status, router]);
 
   if (status === 'loading') return <div>Загрузка...</div>;
-  if (!session || session.user.role !== 'admin') return null;
+  if (status !== 'authenticated' || role !== 'admin') return null;
   return <>{children}</>;
-} 
+}

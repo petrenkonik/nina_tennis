@@ -3,10 +3,10 @@
 import React, { useEffect, useState } from 'react';
 import { useParams, useRouter } from 'next/navigation';
 import Link from 'next/link';
-import { useSession } from 'next-auth/react';
 import { acceptRefereeInvite } from 'app/lib/api';
 import { Skeleton, Button } from 'components/ui';
 import { FaCheckCircle, FaExclamationTriangle, FaSpinner } from 'react-icons/fa';
+import { useSupabaseSession } from 'app/lib/useSupabaseSession';
 
 type State =
   | { kind: 'loading' }
@@ -18,20 +18,19 @@ export default function InvitePage() {
   const params = useParams();
   const router = useRouter();
   const token = Array.isArray(params.token) ? params.token[0] : params.token;
-  const { data: session, status } = useSession();
+  const { status } = useSupabaseSession();
   const [state, setState] = useState<State>({ kind: 'loading' });
 
   useEffect(() => {
     if (status === 'loading') return;
-    if (!session) {
+    if (status !== 'authenticated') {
       // Не авторизован → на логин с возвратом сюда же
       router.replace(`/login?next=/invite/${token}`);
       return;
     }
-    const accessToken = (session as any)?.accessToken;
     let cancelled = false;
     setState({ kind: 'loading' });
-    acceptRefereeInvite(token, accessToken)
+    acceptRefereeInvite(token)
       .then((res) => {
         if (cancelled) return;
         setState({
@@ -45,7 +44,7 @@ export default function InvitePage() {
         setState({ kind: 'error', message: e.message || 'Не удалось принять приглашение' });
       });
     return () => { cancelled = true; };
-  }, [token, session, status, router]);
+  }, [token, status, router]);
 
   return (
     <main className="min-h-screen flex items-center justify-center bg-surface-muted p-4">

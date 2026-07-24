@@ -1,6 +1,6 @@
 'use server';
 
-import { supabaseAdmin } from '../supabase/admin';
+import { createSupabaseServer } from '../supabase/server';
 import { requireAdmin } from '../permissions';
 import { getCurrentUser } from '../session';
 import { generateKnockoutBracket } from '@shared/utils';
@@ -25,7 +25,7 @@ export interface GroupUI {
 }
 
 export async function getGroups(): Promise<GroupUI[]> {
-  const { data, error } = await supabaseAdmin.from('groups').select('id, name, tournament_id');
+  const { data, error } = await (await createSupabaseServer()).from('groups').select('id, name, tournament_id');
   if (error) throw new Error('Ошибка загрузки групп');
   return (data || []).map((g) => ({
     _id: String(g.id),
@@ -38,7 +38,7 @@ export async function getGroups(): Promise<GroupUI[]> {
 }
 
 export async function getGroupById(id: string): Promise<GroupUI | null> {
-  const { data: g, error } = await supabaseAdmin
+  const { data: g, error } = await (await createSupabaseServer())
     .from('groups')
     .select('id, name, tournament_id')
     .eq('id', id)
@@ -46,7 +46,7 @@ export async function getGroupById(id: string): Promise<GroupUI | null> {
   if (error || !g) throw new Error('Ошибка загрузки группы');
 
   // Игроки группы
-  const { data: gp } = await supabaseAdmin
+  const { data: gp } = await (await createSupabaseServer())
     .from('group_players')
     .select('player_id')
     .eq('group_id', id);
@@ -54,7 +54,7 @@ export async function getGroupById(id: string): Promise<GroupUI | null> {
 
   let players: any[] = [];
   if (playerIds.length) {
-    const { data: pRows } = await supabaseAdmin
+    const { data: pRows } = await (await createSupabaseServer())
       .from('players')
       .select('id, full_name, birth_year, gender, club, photo_url, rating')
       .in('id', playerIds);
@@ -73,7 +73,7 @@ export async function getGroupById(id: string): Promise<GroupUI | null> {
 
 /** Игроки группы (с seed). */
 export async function getGroupPlayers(id: string): Promise<any[]> {
-  const { data: gp, error } = await supabaseAdmin
+  const { data: gp, error } = await (await createSupabaseServer())
     .from('group_players')
     .select('player_id')
     .eq('group_id', id);
@@ -81,7 +81,7 @@ export async function getGroupPlayers(id: string): Promise<any[]> {
   const ids = (gp || []).map((r) => r.player_id);
   if (!ids.length) return [];
 
-  const { data: rows } = await supabaseAdmin
+  const { data: rows } = await (await createSupabaseServer())
     .from('players')
     .select('id, full_name, birth_year, gender, club, photo_url, rating')
     .in('id', ids);
@@ -90,7 +90,7 @@ export async function getGroupPlayers(id: string): Promise<any[]> {
 
 /** Посеянные игроки группы. */
 export async function getSeededPlayers(groupId: string): Promise<{ player: string; seed: number }[]> {
-  const { data, error } = await supabaseAdmin
+  const { data, error } = await (await createSupabaseServer())
     .from('group_seeds')
     .select('player_id, seed')
     .eq('group_id', groupId)
@@ -102,7 +102,7 @@ export async function getSeededPlayers(groupId: string): Promise<{ player: strin
 export async function createGroup(data: any, _accessToken?: string): Promise<GroupUI> {
   const user = await getCurrentUser();
   requireAdmin(user);
-  const { data: row, error } = await supabaseAdmin
+  const { data: row, error } = await (await createSupabaseServer())
     .from('groups')
     .insert({
       name: data.name,
@@ -131,7 +131,7 @@ export async function updateGroup(id: string, data: any, _accessToken?: string):
     patch.tournament_id = data.tournament_id ? Number(data.tournament_id) : null;
   }
 
-  const { data: row, error } = await supabaseAdmin
+  const { data: row, error } = await (await createSupabaseServer())
     .from('groups')
     .update(patch)
     .eq('id', id)
@@ -153,7 +153,7 @@ export async function updateGroup(id: string, data: any, _accessToken?: string):
 export async function deleteGroup(id: string, _accessToken?: string): Promise<{ success: boolean }> {
   const user = await getCurrentUser();
   requireAdmin(user);
-  const { error } = await supabaseAdmin.from('groups').delete().eq('id', id);
+  const { error } = await (await createSupabaseServer()).from('groups').delete().eq('id', id);
   if (error) throw new Error('Ошибка удаления группы');
   return { success: true };
 }
@@ -161,7 +161,7 @@ export async function deleteGroup(id: string, _accessToken?: string): Promise<{ 
 // ---- Матчи группы ----
 
 export async function getGroupMatches(groupId: string): Promise<any[]> {
-  const { data, error } = await supabaseAdmin
+  const { data, error } = await (await createSupabaseServer())
     .from('v_matches_full')
     .select('*')
     .eq('group_id', groupId)
@@ -173,7 +173,7 @@ export async function getGroupMatches(groupId: string): Promise<any[]> {
 export async function addMatch(groupId: string, data: any, _accessToken?: string): Promise<any> {
   const user = await getCurrentUser();
   requireAdmin(user);
-  const { data: row, error } = await supabaseAdmin
+  const { data: row, error } = await (await createSupabaseServer())
     .from('matches')
     .insert({
       group_id: Number(groupId),
@@ -194,7 +194,7 @@ export async function addMatch(groupId: string, data: any, _accessToken?: string
 export async function deleteMatch(groupId: string, matchId: string, _accessToken?: string): Promise<{ success: boolean }> {
   const user = await getCurrentUser();
   requireAdmin(user);
-  const { error } = await supabaseAdmin.from('matches').delete().eq('id', matchId);
+  const { error } = await (await createSupabaseServer()).from('matches').delete().eq('id', matchId);
   if (error) throw new Error('Ошибка удаления матча');
   return { success: true };
 }
@@ -221,19 +221,19 @@ export async function generateMatches(groupId: string, _accessToken?: string): P
   const rounds = generateKnockoutBracket(playersWithSeed);
 
   // Удаляем старые матчи группы (каскадно почистит match_judges)
-  const { data: old } = await supabaseAdmin
+  const { data: old } = await (await createSupabaseServer())
     .from('matches')
     .select('id')
     .eq('group_id', groupId);
   if (old && old.length) {
-    await supabaseAdmin.from('matches').delete().in('id', old.map((m) => m.id));
+    await (await createSupabaseServer()).from('matches').delete().in('id', old.map((m) => m.id));
   }
 
   // Создаём матчи по раундам
   const created: any[] = [];
   for (const round of rounds) {
     for (const m of round) {
-      const { data: row, error } = await supabaseAdmin
+      const { data: row, error } = await (await createSupabaseServer())
         .from('matches')
         .insert({
           group_id: Number(groupId),
@@ -257,7 +257,7 @@ export async function generateMatches(groupId: string, _accessToken?: string): P
 async function syncGroupPlayers(groupId: string, players: any[]) {
   const playerIds = players.map((p: any) => Number(p._id || p));
   // Текущие
-  const { data: cur } = await supabaseAdmin
+  const { data: cur } = await (await createSupabaseServer())
     .from('group_players')
     .select('player_id')
     .eq('group_id', groupId);
@@ -268,12 +268,12 @@ async function syncGroupPlayers(groupId: string, players: any[]) {
   const toRemove = [...curIds].filter((id) => !newIds.has(id));
 
   if (toAdd.length) {
-    await supabaseAdmin
+    (await createSupabaseServer())
       .from('group_players')
       .insert(toAdd.map((player_id) => ({ group_id: Number(groupId), player_id })));
   }
   if (toRemove.length) {
-    await supabaseAdmin
+    (await createSupabaseServer())
       .from('group_players')
       .delete()
       .eq('group_id', groupId)
@@ -283,9 +283,9 @@ async function syncGroupPlayers(groupId: string, players: any[]) {
 
 async function syncGroupSeeds(groupId: string, seededPlayers: { player: string; seed: number }[]) {
   // Полная замена посева
-  await supabaseAdmin.from('group_seeds').delete().eq('group_id', groupId);
+  await (await createSupabaseServer()).from('group_seeds').delete().eq('group_id', groupId);
   if (seededPlayers.length) {
-    await supabaseAdmin.from('group_seeds').insert(
+    await (await createSupabaseServer()).from('group_seeds').insert(
       seededPlayers.map((s) => ({
         group_id: Number(groupId),
         player_id: Number(s.player),

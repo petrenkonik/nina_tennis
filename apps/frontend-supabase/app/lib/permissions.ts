@@ -1,5 +1,5 @@
-import { supabaseAdmin } from './supabase/admin';
-import type { AuthUser } from './auth';
+import { createSupabaseServer } from './supabase/server';
+import type { AuthUser } from './session';
 
 /**
  * Серверная проверка прав — замена NestJS-гардов (@Roles, JwtAuthGuard, RolesGuard)
@@ -47,7 +47,8 @@ export async function assertCanJudgeMatch(
   if (user.role === 'admin') return;
 
   // Один запрос: матч → группа → турнир → проверка вхождения user_id в referees.
-  const { data, error } = await supabaseAdmin.rpc('can_user_judge_match', {
+  const supabase = await createSupabaseServer();
+  const { data, error } = await supabase.rpc('can_user_judge_match', {
     p_match_id: Number(matchId),
     p_user_id: user.id,
   });

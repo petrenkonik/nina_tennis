@@ -1,7 +1,7 @@
 'use server';
 
 import crypto from 'crypto';
-import { supabaseAdmin } from '../supabase/admin';
+import { createSupabaseServer } from '../supabase/server';
 import { requireAdmin, requireAuth } from '../permissions';
 import { getCurrentUser } from '../session';
 
@@ -15,7 +15,7 @@ export async function generateRefereeInvite(id: string, _accessToken?: string): 
   requireAdmin(user);
 
   const token = crypto.randomBytes(24).toString('hex');
-  const { error } = await supabaseAdmin
+  const { error } = await (await createSupabaseServer())
     .from('tournaments')
     .update({ referee_invite_token: token })
     .eq('id', id);
@@ -34,7 +34,7 @@ export async function acceptRefereeInvite(
   const user = await getCurrentUser();
   requireAuth(user);
 
-  const { data: tournament, error } = await supabaseAdmin
+  const { data: tournament, error } = await (await createSupabaseServer())
     .from('tournaments')
     .select('id, name')
     .eq('referee_invite_token', token)
@@ -46,7 +46,7 @@ export async function acceptRefereeInvite(
   }
 
   // Идемпотентный insert
-  await supabaseAdmin
+  (await createSupabaseServer())
     .from('tournament_referees')
     .upsert(
       { tournament_id: tournament.id, user_id: user.id },
@@ -54,13 +54,13 @@ export async function acceptRefereeInvite(
     );
 
   // Повышение роли user → referee
-  const { data: profile } = await supabaseAdmin
+  const { data: profile } = await (await createSupabaseServer())
     .from('profiles')
     .select('role')
     .eq('id', user.id)
     .maybeSingle();
   if (profile && profile.role === 'user') {
-    await supabaseAdmin.from('profiles').update({ role: 'referee' }).eq('id', user.id);
+    await (await createSupabaseServer()).from('profiles').update({ role: 'referee' }).eq('id', user.id);
   }
 
   return {
@@ -72,14 +72,14 @@ export async function acceptRefereeInvite(
 
 /** Список судей турнира с кол-вом отсуженных матчей. */
 export async function getTournamentReferees(id: string): Promise<any[]> {
-  const { data: refs, error } = await supabaseAdmin
+  const { data: refs, error } = await (await createSupabaseServer())
     .from('tournament_referees')
     .select('user_id, profiles!inner(id, email, first_name, last_name, role)')
     .eq('tournament_id', id);
   if (error) throw new Error('Ошибка загрузки судей');
 
   // Все матчи турнира (для подсчёта отсуженных)
-  const { data: groups } = await supabaseAdmin
+  const { data: groups } = await (await createSupabaseServer())
     .from('groups')
     .select('id')
     .eq('tournament_id', id);
@@ -96,7 +96,7 @@ export async function getTournamentReferees(id: string): Promise<any[]> {
     }));
   }
 
-  const { data: matches } = await supabaseAdmin
+  const { data: matches } = await (await createSupabaseServer())
     .from('matches')
     .select('id')
     .in('group_id', groupIds);
@@ -105,7 +105,7 @@ export async function getTournamentReferees(id: string): Promise<any[]> {
   // Подсчёт по судьям
   const countByUser = new Map<string, number>();
   if (matchIds.length) {
-    const { data: judges } = await supabaseAdmin
+    const { data: judges } = await (await createSupabaseServer())
       .from('match_judges')
       .select('user_id')
       .in('match_id', matchIds);
@@ -129,7 +129,7 @@ export async function getTournamentReferees(id: string): Promise<any[]> {
 export async function removeReferee(id: string, userId: string, _accessToken?: string): Promise<{ success: boolean }> {
   const user = await getCurrentUser();
   requireAdmin(user);
-  const { error } = await supabaseAdmin
+  const { error } = await (await createSupabaseServer())
     .from('tournament_referees')
     .delete()
     .eq('tournament_id', id)

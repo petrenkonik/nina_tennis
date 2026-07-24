@@ -1,6 +1,6 @@
 'use server';
 
-import { supabaseAdmin } from '../supabase/admin';
+import { createSupabaseServer } from '../supabase/server';
 import { assertCanJudgeMatch } from '../permissions';
 import { getCurrentUser } from '../session';
 import { toMatch } from '../transform';
@@ -18,7 +18,7 @@ import {
  */
 
 export async function getMatch(id: string) {
-  const { data, error } = await supabaseAdmin
+  const { data, error } = await (await createSupabaseServer())
     .from('v_matches_full')
     .select('*')
     .eq('id', id)
@@ -28,7 +28,7 @@ export async function getMatch(id: string) {
   const match = toMatch(data);
 
   // judgedBy — отдельная таблица, подтягиваем с пользователями
-  const { data: judges } = await supabaseAdmin
+  const { data: judges } = await (await createSupabaseServer())
     .from('match_judges')
     .select('user_id, judged_at, profiles!inner(email, first_name, last_name)')
     .eq('match_id', id);
@@ -44,7 +44,7 @@ export async function getMatch(id: string) {
 }
 
 export async function getMatches(): Promise<any[]> {
-  const { data, error } = await supabaseAdmin
+  const { data, error } = await (await createSupabaseServer())
     .from('v_matches_full')
     .select('*')
     .order('created_at', { ascending: false });
@@ -93,13 +93,13 @@ export async function updateMatch(groupId: string, matchId: string, data: any, _
     patch.referee_id = data.refereeId;
   }
 
-  const { error } = await supabaseAdmin.from('matches').update(patch).eq('id', matchId);
+  const { error } = await (await createSupabaseServer()).from('matches').update(patch).eq('id', matchId);
   if (error) throw new Error('Ошибка обновления матча');
 
   // История судейства: добавляем текущего пользователя (идемпотентно).
   // В отличие от backend, фиксируем и админа-судью тоже.
   if (user) {
-    await supabaseAdmin
+    (await createSupabaseServer())
       .from('match_judges')
       .upsert({ match_id: Number(matchId), user_id: user.id }, { onConflict: 'match_id,user_id' });
   }
@@ -123,7 +123,7 @@ export async function updateMatchScore(
   await assertCanJudgeMatch(matchId, user);
 
   // Текущее состояние
-  const { data: m, error } = await supabaseAdmin
+  const { data: m, error } = await (await createSupabaseServer())
     .from('matches')
     .select('id, player1_id, player2_id, scoring_state, point_history, status')
     .eq('id', matchId)
@@ -151,7 +151,7 @@ export async function updateMatchScore(
     } else {
       patch.status = 'in_progress';
     }
-    await supabaseAdmin.from('matches').update(patch).eq('id', matchId);
+    await (await createSupabaseServer()).from('matches').update(patch).eq('id', matchId);
   } else if (action === 'undo') {
     // Undo: убираем последнее очко и переигрываем оставшуюся историю
     if (history.length === 0) return getMatch(matchId);
@@ -168,12 +168,12 @@ export async function updateMatchScore(
       status: 'in_progress',
       winner_id: null,
     };
-    await supabaseAdmin.from('matches').update(patch).eq('id', matchId);
+    await (await createSupabaseServer()).from('matches').update(patch).eq('id', matchId);
   }
 
   // Фиксация судьи в истории
   if (user) {
-    await supabaseAdmin
+    (await createSupabaseServer())
       .from('match_judges')
       .upsert({ match_id: Number(matchId), user_id: user.id }, { onConflict: 'match_id,user_id' });
   }
@@ -186,7 +186,7 @@ export async function resetMatchScore(matchId: string): Promise<any> {
   const user = await getCurrentUser();
   await assertCanJudgeMatch(matchId, user);
   const state = createInitialScoringState();
-  const { error } = await supabaseAdmin
+  const { error } = await (await createSupabaseServer())
     .from('matches')
     .update({
       scoring_state: state,

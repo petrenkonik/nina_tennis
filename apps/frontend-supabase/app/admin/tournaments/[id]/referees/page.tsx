@@ -3,7 +3,6 @@
 import React, { useEffect, useState, useCallback } from 'react';
 import { useParams } from 'next/navigation';
 import Link from 'next/link';
-import { useSession } from 'next-auth/react';
 import RequireAdmin from 'components/RequireAdmin';
 import AdminMenu from 'components/AdminMenu';
 import { Card, CardBody, Button, Skeleton } from 'components/ui';
@@ -37,10 +36,7 @@ export default function RefereesPage() {
 function RefereesContent() {
   const params = useParams();
   const id = Array.isArray(params.id) ? params.id[0] : params.id;
-  const { data: session } = useSession();
-  const accessToken = (session as any)?.accessToken;
-
-  const [tournament, setTournament] = useState<Tournament | null>(null);
+      const [tournament, setTournament] = useState<Tournament | null>(null);
   const [referees, setReferees] = useState<Referee[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');
@@ -71,7 +67,7 @@ function RefereesContent() {
     setGenerating(true);
     setError('');
     try {
-      const { token } = await generateRefereeInvite(id, accessToken);
+      const { token } = await generateRefereeInvite(id);
       const origin = typeof window !== 'undefined' ? window.location.origin : '';
       setInviteUrl(`${origin}/invite/${token}`);
       setCopied(false);
@@ -95,7 +91,7 @@ function RefereesContent() {
   const handleRemove = async (userId: string) => {
     if (!confirm('Удалить судью из турнира?')) return;
     try {
-      await removeReferee(id, userId, accessToken);
+      await removeReferee(id, userId);
       setReferees((rs) => rs.filter((r) => r._id !== userId));
     } catch (e: any) {
       setError(e.message || 'Ошибка удаления');
@@ -123,7 +119,7 @@ function RefereesContent() {
     setSavingEdit(true);
     setError('');
     try {
-      const updated = await updateUser(userId, { firstName: editFirst, lastName: editLast }, accessToken);
+      const updated = await updateUser(userId, { firstName: editFirst, lastName: editLast });
       setReferees((rs) => rs.map((r) => r._id === userId ? { ...r, firstName: updated.firstName, lastName: updated.lastName } : r));
       setEditingId(null);
     } catch (e: any) {

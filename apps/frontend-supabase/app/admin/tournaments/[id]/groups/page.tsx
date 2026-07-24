@@ -2,7 +2,6 @@
 import React, { useEffect, useState } from 'react';
 import { getGroups, createGroup, getTournaments, updateGroup, deleteGroup, getTournamentById } from 'app/lib/api';
 import { useParams, useRouter } from 'next/navigation';
-import { useSession } from 'next-auth/react';
 import AdminMenu from 'components/AdminMenu';
 import { Group } from '@shared/models/group';
 import { formatDate } from '@shared/utils';
@@ -17,9 +16,7 @@ export default function GroupsEditorPage() {
   const [form, setForm] = useState({ name: '' });
   const [tournaments, setTournaments] = useState<any[]>([]);
   const router = useRouter();
-  const { data: session } = useSession();
-  const accessToken = session?.accessToken;
-  const [editGroupId, setEditGroupId] = useState<string | null>(null);
+      const [editGroupId, setEditGroupId] = useState<string | null>(null);
   const [editForm, setEditForm] = useState({ name: '' });
 
   useEffect(() => {
@@ -61,7 +58,7 @@ export default function GroupsEditorPage() {
   async function handleEditSubmit(e: React.FormEvent) {
     e.preventDefault();
     if (!editGroupId) return;
-    await updateGroup(editGroupId, editForm, accessToken);
+    await updateGroup(editGroupId, editForm);
     setEditGroupId(null);
     setEditForm({ name: '' });
     fetchGroups();
@@ -69,7 +66,7 @@ export default function GroupsEditorPage() {
 
   async function handleDeleteGroup(id: string) {
     if (!confirm('Удалить группу?')) return;
-    await deleteGroup(id, accessToken);
+    await deleteGroup(id);
     fetchGroups();
   }
 
