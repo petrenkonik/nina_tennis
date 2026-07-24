@@ -10,15 +10,18 @@
     "dev": "concurrently \"npm run dev:backend\" \"npm run dev:frontend\"",
     "dev:frontend": "cd apps/frontend && npm run dev",
     "dev:backend": "cd apps/backend && npm run start:dev",
+    "dev:supabase": "cd apps/frontend-supabase && npm run dev",
     "build": "npm run build:shared && npm run build:backend && npm run build:frontend",
     "build:shared": "cd libs/shared && npm run build",
     "build:frontend": "cd apps/frontend && npm run build",
     "build:backend": "cd apps/backend && npm run build",
+    "build:supabase": "cd apps/frontend-supabase && npm run build",
     "install:all": "npm install && cd apps/frontend && npm install && cd ../../apps/backend && npm install && cd ../../libs/shared && npm install",
     "test:e2e:backend": "cd apps/backend && npm run test:e2e",
     "test:e2e:frontend": "cd apps/frontend && npm run test:e2e",
     "test:frontend": "cd apps/frontend && npm run test",
-    "seed": "cd apps/backend && npm run seed"
+    "seed": "cd apps/backend && npm run seed",
+    "seed:supabase": "cd apps/frontend-supabase && npm run seed"
   },
   "devDependencies": {
     "@babel/preset-env": "^7.27.2",
