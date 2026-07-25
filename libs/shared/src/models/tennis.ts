@@ -15,6 +15,8 @@ export interface Player {
 
 export interface Match {
   _id: string;
+  /** id группы, к которой привязан матч (для публичного табло). */
+  groupId?: string;
   player1: Player | null; // null если bye
   player2: Player | null;
   score?: string; // "6:4, 7:5"
