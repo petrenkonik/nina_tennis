@@ -1,0 +1,34 @@
+name: React CI
+on:
+  workflow_dispatch:
+  push:
+    branches: [main]
+  pull_request:
+
+# Публичные значения (publishable-ключ — это публичный аналог anon-ключа;
+# URL проекта тоже публичен). RLS защищает данные, а не ключ. Секретный
+# service-role ключ здесь НЕ нужен и НЕ используется.
+env:
+  NEXT_PUBLIC_SUPABASE_URL: https://pnviergohcyfieskqjyt.supabase.co
+  NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY: sb_publishable_NcxldUndG8ZPADQYMFNRgg_9_Igr7XP
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: apps/frontend-supabase
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+          cache: 'npm'
+      - name: Install dependencies (workspaces)
+        run: npm ci
+        working-directory: .
+      - name: Typecheck
+        run: npm run typecheck
+      - name: Build (Next.js)
+        run: npm run build
