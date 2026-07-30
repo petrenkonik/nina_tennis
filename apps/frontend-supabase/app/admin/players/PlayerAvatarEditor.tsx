@@ -1,5 +1,6 @@
 import React, { useState, useCallback } from 'react';
 import Cropper from 'react-easy-crop';
+import { FaTrash } from 'react-icons/fa';
 import { getPlayerAvatarUrl, uploadPlayerAvatar, deletePlayerAvatar } from 'app/lib/avatar';
 import { getCroppedImg } from './utils/cropImage';
 
@@ -119,10 +120,9 @@ export default function PlayerAvatarEditor({ player, onAvatarChanged }: {
             {error && (
               <div className="text-red-600 text-sm text-center mt-3">{error}</div>
             )}
-            <div className="flex gap-2 mt-4 justify-center">
-              <button className="px-3 py-1 bg-red-500 text-white rounded flex items-center disabled:opacity-50" onClick={handleDeleteAvatar} disabled={uploading} title="Удалить аватар">
-                <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5 mr-1" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" /></svg>
-                {uploading ? '...' : 'Удалить'}
+            <div className="flex gap-2 mt-4 justify-center items-center">
+              <button className="w-9 h-9 bg-red-500 text-white rounded flex items-center justify-center disabled:opacity-50 hover:bg-red-600" onClick={handleDeleteAvatar} disabled={uploading} title="Удалить аватар" aria-label="Удалить аватар">
+                {uploading ? <span className="text-xs">…</span> : <FaTrash />}
               </button>
               <label className="px-3 py-1 bg-blue-600 text-white rounded flex items-center cursor-pointer" title="Загрузить новое фото">
                 <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5 mr-1" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 16v2a2 2 0 002 2h12a2 2 0 002-2v-2M7 10l5-5m0 0l5 5m-5-5v12" /></svg>

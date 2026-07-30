@@ -90,13 +90,34 @@ export async function getTournamentById(id: string): Promise<any> {
     .select('id, name')
     .eq('tournament_id', id);
 
+  // Кол-во игроков в каждой группе (для счётчиков на странице групп)
+  const groupIds = (groups || []).map((g) => Number(g.id));
+  const playersByGroup = new Map<string, number>();
+  if (groupIds.length) {
+    const { data: gp } = await (await createSupabaseServer())
+      .from('group_players')
+      .select('group_id')
+      .in('group_id', groupIds);
+    for (const r of gp || []) {
+      playersByGroup.set(
+        String(r.group_id),
+        (playersByGroup.get(String(r.group_id)) || 0) + 1,
+      );
+    }
+  }
+
   return {
     _id: String(t.id),
     name: t.name,
     startDate: t.start_date,
     endDate: t.end_date,
     clubId: t.club_id != null ? String(t.club_id) : undefined,
-    groups: (groups || []).map((g) => ({ _id: String(g.id), name: g.name })),
+    groups: (groups || []).map((g) => ({
+      _id: String(g.id),
+      name: g.name,
+      players: [],
+      playersCount: playersByGroup.get(String(g.id)) || 0,
+    })),
   };
 }
 

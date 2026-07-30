@@ -1,22 +1,29 @@
 "use client";
 import React, { useEffect, useState } from 'react';
-import { getGroups, createGroup, getTournaments, updateGroup, deleteGroup, getTournamentById } from 'app/lib/api';
+import { createGroup, getTournaments, updateGroup, deleteGroup, getTournamentById } from 'app/lib/api';
 import { useParams, useRouter } from 'next/navigation';
 import AdminMenu from 'components/AdminMenu';
-import { Group } from '@shared/models/group';
+import { Button, Card } from 'components/ui';
+import { FaPlus, FaEdit, FaTrash, FaTimes, FaCheck, FaUsers, FaStream } from 'react-icons/fa';
 import { formatDate } from '@shared/utils';
+
+interface GroupRow {
+  _id: string;
+  name: string;
+  playersCount: number;
+}
 
 export default function GroupsEditorPage() {
   const { id: rawId } = useParams();
   const id = Array.isArray(rawId) ? rawId[0] : rawId;
-  const [groups, setGroups] = useState<Group[]>([]);
+  const [groups, setGroups] = useState<GroupRow[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');
   const [showForm, setShowForm] = useState(false);
   const [form, setForm] = useState({ name: '' });
   const [tournaments, setTournaments] = useState<any[]>([]);
   const router = useRouter();
-      const [editGroupId, setEditGroupId] = useState<string | null>(null);
+  const [editGroupId, setEditGroupId] = useState<string | null>(null);
   const [editForm, setEditForm] = useState({ name: '' });
 
   useEffect(() => {
@@ -37,8 +44,13 @@ export default function GroupsEditorPage() {
     setLoading(true);
     try {
       const tournament = await getTournamentById(id);
-      // tournament.groups — массив объектов групп
-      setGroups(tournament.groups || []);
+      setGroups(
+        (tournament.groups || []).map((g: any) => ({
+          _id: String(g._id),
+          name: g.name,
+          playersCount: typeof g.playersCount === 'number' ? g.playersCount : (g.players?.length || 0),
+        })),
+      );
       setError('');
     } catch {
       setError('Ошибка загрузки групп');
@@ -70,15 +82,17 @@ export default function GroupsEditorPage() {
     fetchGroups();
   }
 
+  const inputCls = 'border border-surface-border rounded-lg px-3 py-2 bg-surface-card text-content text-sm w-full focus:ring-2 focus:ring-brand-200 outline-none transition';
+
   return (
-    <main className="max-w-xl mx-auto py-8 px-2 pb-24">
+    <main className="max-w-2xl mx-auto py-8 px-4 pb-24">
       <AdminMenu className="hidden md:flex" />
       <h1 className="text-2xl font-extrabold mb-6">Группы турнира</h1>
       {/* Комбобокс выбора турнира */}
       <div className="mb-6">
         <label className="block mb-1 font-semibold">Выбрать турнир:</label>
         <select
-          className="border rounded px-3 py-2 w-full max-w-xs"
+          className={`${inputCls} max-w-xs`}
           value={id}
           onChange={e => router.push(`/admin/tournaments/${e.target.value}/groups`)}
         >
@@ -87,61 +101,93 @@ export default function GroupsEditorPage() {
           ))}
         </select>
       </div>
-      <button onClick={() => setShowForm(true)} className="mb-4 px-4 py-2 bg-blue-600 text-white rounded">Добавить группу</button>
-      {loading && <div>Загрузка...</div>}
-      {error && <div className="text-red-500">{error}</div>}
-      <ul className="mb-8">
+      <Button onClick={() => setShowForm(true)} className="mb-4">
+        <FaPlus /> Добавить группу
+      </Button>
+      {loading && <div className="text-content-muted">Загрузка...</div>}
+      {error && <div className="bg-red-100 dark:bg-red-900/30 text-red-700 dark:text-red-300 px-3 py-2 rounded-lg text-sm">{error}</div>}
+      <div className="space-y-3 mb-8">
         {groups.map(g => (
-          <li key={g._id} className="mb-2 p-3 bg-white rounded shadow flex items-center justify-between">
+          <Card key={g._id} className="p-4">
             {editGroupId === g._id ? (
               <form onSubmit={handleEditSubmit} className="flex gap-2 w-full">
                 <input
-                  className="border rounded px-2 py-1 flex-1"
+                  className={inputCls}
                   value={editForm.name}
                   onChange={e => setEditForm(f => ({ ...f, name: e.target.value }))}
                   required
+                  autoFocus
                 />
-                <button type="submit" className="px-2 py-1 bg-blue-600 text-white rounded">Сохранить</button>
-                <button type="button" onClick={() => setEditGroupId(null)} className="px-2 py-1 bg-gray-200 rounded">Отмена</button>
+                <Button type="submit" variant="success" size="sm">
+                  <FaCheck />
+                </Button>
+                <Button type="button" variant="outline" size="sm" onClick={() => setEditGroupId(null)}>
+                  <FaTimes />
+                </Button>
               </form>
             ) : (
-              <>
-                <span>{g.name}</span>
-                <div className="flex gap-2 items-center">
-                  <button
-                    className="px-2 py-1 bg-blue-100 text-blue-800 rounded hover:bg-blue-200 text-xs"
-                    onClick={() => router.push(`/admin/groups/${g._id}/users`)}
-                  >
-                    {g.players?.length || 0} пользователей
-                  </button>
-                  <button
-                    className="px-2 py-1 bg-purple-100 text-purple-800 rounded hover:bg-purple-200 text-xs"
-                    onClick={() => router.push(`/admin/groups/${g._id}/bracket`)}
-                  >
-                    Матчи
-                  </button>
-                  <button onClick={() => { setEditGroupId(g._id); setEditForm({ name: g.name }); }} className="px-2 py-1 bg-yellow-100 text-yellow-800 rounded">Редактировать</button>
-                  <button onClick={() => handleDeleteGroup(g._id)} className="px-2 py-1 bg-red-100 text-red-700 rounded">Удалить</button>
+              <div className="flex items-center justify-between gap-2 flex-wrap">
+                <div className="min-w-0">
+                  <div className="font-semibold text-content truncate">{g.name}</div>
+                  <div className="text-xs text-content-muted flex items-center gap-1 mt-0.5">
+                    <FaUsers /> {g.playersCount} уч.
+                  </div>
                 </div>
-              </>
+                <div className="flex gap-2 items-center">
+                  <Button variant="secondary" size="sm" onClick={() => router.push(`/admin/groups/${g._id}/users`)} title="Участники группы">
+                    <FaUsers /> Участники
+                  </Button>
+                  <Button variant="outline" size="sm" onClick={() => router.push(`/admin/groups/${g._id}/bracket`)} title="Матчи и сетка группы">
+                    <FaStream /> Матчи
+                  </Button>
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    onClick={() => { setEditGroupId(g._id); setEditForm({ name: g.name }); }}
+                    title="Переименовать группу"
+                  >
+                    <FaEdit />
+                  </Button>
+                  <Button
+                    variant="ghost"
+                    size="sm"
+                    className="!text-red-600"
+                    onClick={() => handleDeleteGroup(g._id)}
+                    title="Удалить группу"
+                    aria-label="Удалить группу"
+                  >
+                    <FaTrash />
+                  </Button>
+                </div>
+              </div>
             )}
-          </li>
+          </Card>
         ))}
-      </ul>
-      {showForm && (
-        <form onSubmit={handleSubmit} className="bg-white rounded shadow p-4 mb-4">
-          <input
-            className="border rounded px-3 py-2 mb-2 w-full"
-            placeholder="Название группы"
-            value={form.name}
-            onChange={e => setForm(f => ({ ...f, name: e.target.value }))}
-            required
-          />
-          <div className="flex gap-2">
-            <button type="submit" className="px-4 py-2 bg-blue-600 text-white rounded">Сохранить</button>
-            <button type="button" onClick={() => setShowForm(false)} className="px-4 py-2 bg-gray-200 rounded">Отмена</button>
+        {!loading && !error && groups.length === 0 && (
+          <div className="text-center py-12 text-content-muted">
+            <div className="text-5xl mb-3">📋</div>
+            <p>В турнире пока нет групп</p>
           </div>
-        </form>
+        )}
+      </div>
+      {showForm && (
+        <Card className="p-4 mb-4">
+          <form onSubmit={handleSubmit} className="space-y-3">
+            <h3 className="font-semibold flex items-center gap-2"><FaPlus /> Новая группа</h3>
+            <input
+              className={inputCls}
+              placeholder="Название группы"
+              value={form.name}
+              onChange={e => setForm(f => ({ ...f, name: e.target.value }))}
+              required
+              autoFocus
+            />
+            <div className="flex gap-2">
+              <Button type="submit">Сохранить</Button>
+              <Button type="button" variant="outline" onClick={() => setShowForm(false)}>Отмена</Button>
+            </div>
+          </form>
+        </Card>
       )}
     </main>
   );

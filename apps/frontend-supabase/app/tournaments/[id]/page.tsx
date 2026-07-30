@@ -18,7 +18,9 @@ function AllGroups({ groups, tournamentId }: { groups: any[]; tournamentId: stri
             className="block border rounded p-3 bg-gray-50 hover:bg-blue-50 transition"
           >
             <div className="font-medium">{group.name}</div>
-            <div className="text-xs text-gray-500">Участников: {group.players?.length || 0}</div>
+            <div className="text-xs text-gray-500">
+              Участников: {typeof group.playersCount === 'number' ? group.playersCount : (group.players?.length || 0)}
+            </div>
           </Link>
         ))}
       </div>

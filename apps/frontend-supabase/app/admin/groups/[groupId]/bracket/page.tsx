@@ -5,6 +5,7 @@ import AdminMenu from 'components/AdminMenu';
 import { useParams } from 'next/navigation';
 import GroupHeader from './GroupHeader';
 import Link from 'next/link';
+import { FaTrash } from 'react-icons/fa';
 
 const ROUND_OPTIONS = Array.from({ length: 8 }, (_, i) => i + 1);
 const STATUS_OPTIONS = [
@@ -179,7 +180,14 @@ export default function GroupBracketEditor() {
                 </Link>
               )}
               <button className={`px-2 py-1 bg-yellow-100 text-yellow-800 rounded ${m.player1 && m.player2 ? '' : 'ml-auto'}`} onClick={() => handleEditMatch(m)}>Редактировать</button>
-              <button className="px-2 py-1 bg-red-100 text-red-700 rounded" onClick={() => handleDeleteMatch(m._id)}>Удалить</button>
+              <button
+                className="px-2 py-1 bg-red-100 text-red-700 rounded hover:bg-red-200 flex items-center justify-center"
+                onClick={() => handleDeleteMatch(m._id)}
+                title="Удалить матч"
+                aria-label="Удалить матч"
+              >
+                <FaTrash />
+              </button>
             </div>
             <div className="flex gap-4">
               <span>{m.player1 ? m.player1.fullName : <span className="text-gray-400">—</span>}</span>
