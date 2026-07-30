@@ -165,7 +165,8 @@ function AdminTournamentsPage() {
                 </span>
                 <button
                   className="bg-surface-muted text-content rounded px-2 py-1 hover:text-brand-600"
-                  onClick={() => router.push(`/admin/tournaments/${t._id}/users`)}
+                  title="Участники распределены по группам"
+                  onClick={() => router.push(`/admin/tournaments/${t._id}/groups`)}
                 >
                   {getParticipantsCount(t)} участников
                 </button>
