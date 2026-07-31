@@ -45,8 +45,41 @@ function playerId(p: BracketPlayer): string | undefined {
   return undefined;
 }
 
+/** Признак «соперник не определён» (TBD) — слот без игрока в раунде ≥ 1. */
+function isByeSlot(p: BracketPlayer): boolean {
+  return !p || ('name' in p && p.name === 'BYE') || !('_id' in p && p._id);
+}
+
+export type MatchType = 'finished' | 'in_progress' | 'scheduled' | 'tbd' | 'canceled';
+
+/**
+ * Классифицирует матч по цветотипу сетки.
+ * TBD: раунд ≥ 1 (roundIndex), где хотя бы один слот — «ждёт победителя» (bye/null).
+ * Настоящий bye возможен только в первом раунде и считается scheduled.
+ */
+export function getMatchType(match: BracketMatch, roundIndex?: number): MatchType {
+  if (match.status === 'canceled') return 'canceled';
+  if (match.status === 'finished') return 'finished';
+  if (match.status === 'in_progress') return 'in_progress';
+  // Раунды 2+ с незаполненным слотом → соперник ещё не определён (TBD).
+  if ((roundIndex ?? 0) >= 1 && (isByeSlot(match.teams?.[0]) || isByeSlot(match.teams?.[1]))) {
+    return 'tbd';
+  }
+  return 'scheduled';
+}
+
+/** Класс рамки карточки для каждого типа матча. */
+export const MATCH_BORDER: Record<MatchType, string> = {
+  finished: 'border-emerald-400/70 hover:border-emerald-400',
+  in_progress: 'border-live/60 ring-1 ring-live/30',
+  scheduled: 'border-blue-400/70 hover:border-blue-400',
+  tbd: 'border-dashed border-content-muted/50 hover:border-content-muted',
+  canceled: 'border-surface-border opacity-60',
+};
+
 export default function MatchCard({
   match,
+  roundIndex,
   href,
   compact,
   connector = 'none',
@@ -63,6 +96,11 @@ export default function MatchCard({
   const serverLeft = isLive && match.serverSide === 'left';
   const serverRight = isLive && match.serverSide === 'right';
 
+  const matchType = getMatchType(match, roundIndex);
+  const isTbd = matchType === 'tbd';
+  // Цвет рамки по типу матча (единый источник правды для сетки и легенды).
+  const borderClass = MATCH_BORDER[matchType];
+
   // Судья матча (отображаем текущего; если есть история — всех).
   const referee = refereeName(match.refereeId);
   const allJudges = (match.judgedBy || []).map(refereeName).filter(Boolean);
@@ -74,14 +112,18 @@ export default function MatchCard({
     <div
       className={cx(
         'relative rounded-lg border bg-surface-card shadow-sm transition-all',
-        'border-surface-border hover:border-brand-400 hover:shadow-md',
-        isLive && 'border-live/60 ring-1 ring-live/30',
+        'hover:shadow-md',
+        borderClass,
         compact ? 'w-[200px]' : 'w-[240px]',
       )}
     >
       {/* Статус + корт (шапка) */}
       <div className="flex items-center justify-between gap-1 px-2 py-1 border-b border-surface-border bg-surface-muted/50 rounded-t-lg">
-        {match.status ? (
+        {isTbd ? (
+          <span className="inline-flex items-center gap-1 rounded-full bg-content-muted/15 px-2 py-0.5 text-[0.65rem] font-medium text-content-muted">
+            ⏳ TBD · ожидается победитель
+          </span>
+        ) : match.status ? (
           <StatusBadge status={match.status} />
         ) : (
           <span className="text-[0.65rem] text-content-muted">Раунд</span>
@@ -101,6 +143,7 @@ export default function MatchCard({
           isServer={serverLeft}
           undecided={!hasWinner}
           compact={compact}
+          placeholder={isTbd ? 'Ожидается соперник' : undefined}
         />
         <BracketPlayerRow
           player={p2 as any}
@@ -108,6 +151,7 @@ export default function MatchCard({
           isServer={serverRight}
           undecided={!hasWinner}
           compact={compact}
+          placeholder={isTbd ? 'Ожидается соперник' : undefined}
         />
       </div>
 
@@ -132,9 +176,15 @@ export default function MatchCard({
         </div>
       )}
 
-      {/* Соединительная линия справа к следующему раунду */}
+      {/* Соединительная линия справа к следующему раунду.
+          Зелёная — если победитель уже определён (путь победителя). */}
       {connector === 'right' && (
-        <span className="hidden md:block absolute top-1/2 -right-4 w-4 h-px bg-surface-border" />
+        <span
+          className={cx(
+            'hidden md:block absolute top-1/2 -right-4 w-4 h-0.5 -translate-y-1/2',
+            hasWinner ? 'bg-emerald-500' : 'bg-content-muted/40 dark:bg-content-muted/30',
+          )}
+        />
       )}
     </div>
   );

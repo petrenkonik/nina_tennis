@@ -4,7 +4,7 @@ import React, { useState, useMemo } from 'react';
 import { cx } from 'components/ui/cx';
 import { Button } from 'components/ui';
 import { FaSearchPlus, FaSearchMinus, FaUndo } from 'react-icons/fa';
-import MatchCard, { type BracketMatch } from './MatchCard';
+import MatchCard, { type BracketMatch, type MatchType } from './MatchCard';
 
 export interface BracketRound {
   title: string;
@@ -45,8 +45,8 @@ export default function BracketView({ rounds, matchHref, compact, className }: B
 
   return (
     <div className={cx('relative', className)}>
-      {/* Зум-контролы */}
-      <div className="sticky top-2 z-20 flex justify-end gap-1 mb-2">
+      <div className="sticky top-2 z-20 flex items-start justify-between gap-2 mb-2 flex-wrap">
+        {/* Зум-контролы */}
         <div className="inline-flex items-center gap-1 rounded-lg border border-surface-border bg-surface-card shadow-sm p-1">
           <Button variant="ghost" size="sm" onClick={() => setZoom((z) => Math.max(0.5, +(z - 0.1).toFixed(2)))} aria-label="Уменьшить">
             <FaSearchMinus />
@@ -59,6 +59,8 @@ export default function BracketView({ rounds, matchHref, compact, className }: B
             <FaUndo />
           </Button>
         </div>
+        {/* Легенда типов матчей */}
+        <Legend />
       </div>
 
       {/* Горизонтальная прокрутка */}
@@ -73,6 +75,7 @@ export default function BracketView({ rounds, matchHref, compact, className }: B
             const spacing = MATCH_HEIGHT + (2 ** rIdx) * (MATCH_HEIGHT + MATCH_GAP) - MATCH_HEIGHT;
             const isFirst = rIdx === 0;
             const isLast = rIdx === rounds.length - 1;
+            const prevRound = !isFirst ? rounds[rIdx - 1] : null;
 
             return (
               <div key={rIdx} className="flex flex-col" style={{ minWidth: compact ? 210 : 260 }}>
@@ -88,24 +91,38 @@ export default function BracketView({ rounds, matchHref, compact, className }: B
                   className="relative flex flex-col flex-1"
                   style={{ justifyContent: isFirst ? 'flex-start' : 'space-around', gap: isFirst ? `${MATCH_GAP}px` : undefined }}
                 >
-                  {round.seeds.map((match, mIdx) => (
-                    <div
-                      key={match.id || mIdx}
-                      className="relative flex items-center overflow-visible"
-                      style={{ minHeight: MATCH_HEIGHT, flex: '0 0 auto' }}
-                    >
-                      <MatchCard
-                        match={match}
-                        roundIndex={rIdx}
-                        href={matchHref ? matchHref(match.id) : undefined}
-                        compact={compact}
-                        connector={isLast ? 'none' : 'right'}
-                      />
+                  {round.seeds.map((match, mIdx) => {
+                    // Два матча предыдущего раунда, питающие этот (для пути победителя).
+                    const topSource = prevRound?.seeds[mIdx * 2];
+                    const bottomSource = prevRound?.seeds[mIdx * 2 + 1];
 
-                      {/* Соединительные линии К ПРЕДЫДУЩЕМУ раунду (слева) */}
-                      {!isFirst && <Connectors side="left" index={mIdx} spacing={spacing} />}
-                    </div>
-                  ))}
+                    return (
+                      <div
+                        key={match.id || mIdx}
+                        className="relative flex items-center overflow-visible"
+                        style={{ minHeight: MATCH_HEIGHT, flex: '0 0 auto' }}
+                      >
+                        <MatchCard
+                          match={match}
+                          roundIndex={rIdx}
+                          href={matchHref ? matchHref(match.id) : undefined}
+                          compact={compact}
+                          connector={isLast ? 'none' : 'right'}
+                        />
+
+                        {/* Соединительные линии К ПРЕДЫДУЩЕМУ раунду (слева) */}
+                        {!isFirst && (
+                          <Connectors
+                            side="left"
+                            index={mIdx}
+                            spacing={spacing}
+                            topResolved={hasMatchWinner(topSource)}
+                            bottomResolved={hasMatchWinner(bottomSource)}
+                          />
+                        )}
+                      </div>
+                    );
+                  })}
                 </div>
               </div>
             );
@@ -116,27 +133,71 @@ export default function BracketView({ rounds, matchHref, compact, className }: B
   );
 }
 
+/** Победитель матча определён → линия от него к следующему раунду «активна». */
+function hasMatchWinner(m?: BracketMatch): boolean {
+  return Boolean(m?.winner);
+}
+
 /**
  * Рисует соединительные линии между матчем текущего раунда и парой матчей
  * предыдущего раунда. Т-образный соединитель: вертикаль + горизонталь.
+ * Сегменты, ведущие от матча с определённым победителем, подсвечиваются зелёным.
  */
-function Connectors({ side, index, spacing }: { side: 'left'; index: number; spacing: number }) {
+function Connectors({
+  side,
+  index,
+  spacing,
+  topResolved = false,
+  bottomResolved = false,
+}: {
+  side: 'left';
+  index: number;
+  spacing: number;
+  topResolved?: boolean;
+  bottomResolved?: boolean;
+}) {
   // Каждому матчу соответствуют 2 матча предыдущего раунда.
   // Рисуем горизонтальную линию от карточки + вертикальную, связывающую пару.
   const halfSpacing = spacing / 2;
   const isTop = index % 2 === 0;
+  // Этот соединитель «висит» на верхнем источнике (isTop) — значит его winner
+  // определяет цвет выходящей из него линии (горизонталь + половина вертикали).
+  const resolved = isTop ? topResolved : bottomResolved;
+  const lineBase = 'bg-content-muted/40 dark:bg-content-muted/30';
+  const lineWin = 'bg-emerald-500';
   return (
-    <div className={cx('absolute top-1/2 h-px pointer-events-none', side === 'left' && '-left-4 w-4')}>
+    <div className={cx('absolute top-1/2 pointer-events-none', side === 'left' && '-left-4 w-4 h-0.5 -translate-y-1/2')}>
       {/* горизонталь к колонке */}
-      <span className="block w-full h-px bg-surface-border" />
+      <span className={cx('block w-full h-0.5', resolved ? lineWin : lineBase)} />
       {/* вертикаль, соединяющая с парным матчем */}
       <span
-        className="absolute left-0 w-px bg-surface-border"
+        className={cx('absolute left-0 w-0.5', topResolved || bottomResolved ? lineWin : lineBase)}
         style={{
-          height: isTop ? halfSpacing : halfSpacing,
+          height: halfSpacing,
           [isTop ? 'top' : 'bottom']: 0,
         } as React.CSSProperties}
       />
+    </div>
+  );
+}
+
+/** Компактная расшифровка цветов карточек сетки. */
+const LEGEND: { type: MatchType; label: string; dot: string }[] = [
+  { type: 'finished', label: 'Завершён', dot: 'bg-emerald-500' },
+  { type: 'in_progress', label: 'В игре', dot: 'bg-live' },
+  { type: 'scheduled', label: 'Запланирован', dot: 'bg-blue-400' },
+  { type: 'tbd', label: 'Соперник TBD', dot: 'bg-content-muted/50' },
+];
+
+function Legend() {
+  return (
+    <div className="inline-flex flex-wrap items-center gap-x-3 gap-y-1 rounded-lg border border-surface-border bg-surface-card shadow-sm px-2.5 py-1.5">
+      {LEGEND.map((item) => (
+        <span key={item.type} className="inline-flex items-center gap-1.5 text-xs text-content-muted">
+          <span className={cx('inline-block w-2.5 h-2.5 rounded-full', item.dot)} />
+          {item.label}
+        </span>
+      ))}
     </div>
   );
 }

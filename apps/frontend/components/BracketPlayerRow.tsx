@@ -16,6 +16,8 @@ interface BracketPlayerRowProps {
   isServer?: boolean;
   /** Пока неизвестно, кто выиграл (матч идёт). */
   undecided?: boolean;
+  /** Текст-заглушка для TBD-слота («Ожидается соперник»). */
+  placeholder?: string;
   compact?: boolean;
 }
 
@@ -32,9 +34,10 @@ export default function BracketPlayerRow({
   isWinner,
   isServer,
   undecided,
+  placeholder,
   compact,
 }: BracketPlayerRowProps) {
-  const displayName = player?.fullName ?? fullName ?? (player?.name ? '—' : 'BYE');
+  const displayName = player?.fullName ?? fullName ?? (placeholder ?? (player?.name ? '—' : 'BYE'));
   const displayPhoto = player?.photoUrl ?? photoUrl;
   const displayClub = player?.club ?? club;
   const displaySeed = player?.seed ?? seed;
