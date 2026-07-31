@@ -3,7 +3,7 @@
 import React, { useEffect, useState } from 'react';
 import { useParams, useRouter } from 'next/navigation';
 import Link from 'next/link';
-import { acceptRefereeInvite } from 'app/lib/api';
+import { acceptRefereeInvite } from 'app/lib/client';
 import { Skeleton, Button } from 'components/ui';
 import { FaCheckCircle, FaExclamationTriangle, FaSpinner } from 'react-icons/fa';
 import { useSupabaseSession } from 'app/lib/useSupabaseSession';

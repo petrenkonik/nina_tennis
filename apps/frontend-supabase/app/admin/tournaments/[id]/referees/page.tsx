@@ -13,7 +13,7 @@ import {
   generateRefereeInvite,
   removeReferee,
   updateUser,
-} from 'app/lib/api';
+} from 'app/lib/client';
 import type { Tournament } from '@shared/models/tennis';
 
 interface Referee {

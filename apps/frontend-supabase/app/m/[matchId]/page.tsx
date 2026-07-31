@@ -7,7 +7,7 @@ import Scoreboard from 'components/Scoreboard';
 import { Skeleton, StatusBadge } from 'components/ui';
 import { Button } from 'components/ui';
 import { FaExpand, FaCompress } from 'react-icons/fa';
-import { getMatch, getGroupById } from 'app/lib/api';
+import { getMatch, getGroupById } from 'app/lib/client';
 import { supabaseBrowser } from 'app/lib/supabase/browser';
 import type { Match } from '@shared/models/tennis';
 

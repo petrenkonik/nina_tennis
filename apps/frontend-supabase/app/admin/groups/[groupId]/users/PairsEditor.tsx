@@ -15,7 +15,7 @@ import {
   updateGroup,
   createPlayer,
   getClubs,
-} from "app/lib/api";
+} from "app/lib/client";
 import { Button, Card, CardBody, Skeleton, StatusBadge } from "components/ui";
 import { SeedBadge } from "components/ui/SeedBadge";
 import { FaArrowUp, FaArrowDown, FaPlus, FaStar, FaTrash, FaEdit, FaCheck, FaUsers } from "react-icons/fa";

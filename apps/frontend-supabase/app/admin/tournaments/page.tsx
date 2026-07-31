@@ -11,7 +11,7 @@ import {
   updateTournament,
   deleteTournament,
   getClubs,
-} from 'app/lib/api';
+} from 'app/lib/client';
 import { useRouter } from 'next/navigation';
 import {
   formatDate,

@@ -2,7 +2,7 @@
 import React, { useEffect, useState } from 'react';
 import { useRouter } from 'next/navigation';
 import Link from 'next/link';
-import { getTournaments } from 'app/lib/api';
+import { getTournaments } from 'app/lib/client';
 import AdminMenu from 'components/AdminMenu';
 import { Button } from 'components/ui';
 

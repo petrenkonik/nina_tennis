@@ -1,6 +1,6 @@
 "use client";
 import React, { useEffect, useState } from 'react';
-import { getGroupById, getTournamentById, getGroupMatches, addMatch, updateMatch, deleteMatch, generateMatches } from 'app/lib/api';
+import { getGroupById, getTournamentById, getGroupMatches, addMatch, updateMatch, deleteMatch, generateMatches } from 'app/lib/client';
 import AdminMenu from 'components/AdminMenu';
 import { useParams } from 'next/navigation';
 import GroupHeader from './GroupHeader';

@@ -7,7 +7,7 @@ import {
   getGroupById,
   getGroupMatches,
   updateMatch,
-} from 'app/lib/api';
+} from 'app/lib/client';
 import { Button, StatusBadge } from 'components/ui';
 import Scoreboard from 'components/Scoreboard';
 import {

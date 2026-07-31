@@ -1,6 +1,6 @@
 "use client";
 import React, { useEffect, useState, useRef } from 'react';
-import { getPlayers, getClubs, createPlayer } from 'app/lib/api';
+import { getPlayers, getClubs, createPlayer, updatePlayer } from 'app/lib/client';
 import AdminMenu from 'components/AdminMenu';
 import { Button, Card, Skeleton } from 'components/ui';
 import { FaPlus, FaEdit, FaTimes } from 'react-icons/fa';
@@ -62,7 +62,6 @@ export default function PlayersPage() {
     if (!editingPlayer) return;
     setSaving(true);
     try {
-      const { updatePlayer } = await import('app/lib/api');
       await updatePlayer(editingPlayer._id, editForm);
       setEditingPlayer(null);
       setEditForm({});

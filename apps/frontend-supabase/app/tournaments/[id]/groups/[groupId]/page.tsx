@@ -3,7 +3,7 @@ import React, { useEffect, useState } from 'react';
 import { useParams } from 'next/navigation';
 import MainMenu from '../../../../../components/MainMenu';
 import MainLayout from 'app/main-layout';
-import { getGroupById, getSeededPlayers, getTournamentById } from 'app/lib/api';
+import { getGroupById, getSeededPlayers, getTournamentById } from 'app/lib/client';
 import PlayerCard from '../../../../components/PlayerCard';
 import Link from "next/link";
 
