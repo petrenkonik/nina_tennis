@@ -71,7 +71,7 @@ export default function GroupUsersEditorPage() {
   // Нормализованный посев (без дублей, отсортирован)
   const seeds = useMemo(() => {
     const raw: { playerId: string; seed: number }[] = (group?.seededPlayers || []).map((s: any) => ({
-      playerId: String(s.player?._id || s.player),
+      playerId: String(s.playerId ?? s.player?._id ?? s.player),
       seed: Number(s.seed),
     }));
     return normalizeSeeds(raw);

@@ -21,7 +21,7 @@ export interface GroupUI {
   tournament_id?: string | null;
   players: any[];
   matches: any[];
-  seededPlayers?: { player: string; seed: number }[];
+  seededPlayers?: { playerId: string; seed: number }[];
 }
 
 export async function getGroups(): Promise<GroupUI[]> {
@@ -61,6 +61,9 @@ export async function getGroupById(id: string): Promise<GroupUI | null> {
     players = (pRows || []).map((r) => toPlayer(r)).filter(Boolean);
   }
 
+  // Посев группы (seededPlayers) — нужен UI, иначе посев всегда отображается пустым
+  const seededPlayers = await getSeededPlayers(id);
+
   return {
     _id: String(g.id),
     name: g.name,
@@ -68,6 +71,7 @@ export async function getGroupById(id: string): Promise<GroupUI | null> {
     tournament_id: g.tournament_id ? String(g.tournament_id) : null,
     players,
     matches: [],
+    seededPlayers,
   };
 }
 
@@ -89,14 +93,14 @@ export async function getGroupPlayers(id: string): Promise<any[]> {
 }
 
 /** Посеянные игроки группы. */
-export async function getSeededPlayers(groupId: string): Promise<{ player: string; seed: number }[]> {
+export async function getSeededPlayers(groupId: string): Promise<{ playerId: string; seed: number }[]> {
   const { data, error } = await (await createSupabaseServer())
     .from('group_seeds')
     .select('player_id, seed')
     .eq('group_id', groupId)
     .order('seed', { ascending: true });
   if (error) throw new Error('Ошибка загрузки посеянных игроков');
-  return (data || []).map((r) => ({ player: String(r.player_id), seed: r.seed }));
+  return (data || []).map((r) => ({ playerId: String(r.player_id), seed: r.seed }));
 }
 
 export async function createGroup(data: any, _accessToken?: string): Promise<GroupUI> {
@@ -214,7 +218,7 @@ export async function generateMatches(groupId: string, _accessToken?: string): P
 
   // Игроки с seed
   const playersWithSeed = group.players.map((p: any) => {
-    const seedObj = seeds.find((s) => s.player === String(p._id));
+    const seedObj = seeds.find((s) => s.playerId === String(p._id));
     return seedObj ? { ...p, seed: seedObj.seed } : p;
   });
 
@@ -281,14 +285,14 @@ async function syncGroupPlayers(groupId: string, players: any[]) {
   }
 }
 
-async function syncGroupSeeds(groupId: string, seededPlayers: { player: string; seed: number }[]) {
+async function syncGroupSeeds(groupId: string, seededPlayers: { playerId: string; seed: number }[]) {
   // Полная замена посева
   await (await createSupabaseServer()).from('group_seeds').delete().eq('group_id', groupId);
   if (seededPlayers.length) {
     await (await createSupabaseServer()).from('group_seeds').insert(
       seededPlayers.map((s) => ({
         group_id: Number(groupId),
-        player_id: Number(s.player),
+        player_id: Number(s.playerId),
         seed: s.seed,
       })),
     );
