@@ -117,3 +117,48 @@ export function swapSeeds(entries: SeedEntry[], seedA: number, seedB: number): S
   [sorted[idxA], sorted[idxB]] = [sorted[idxB], sorted[idxA]];
   return sorted.map((e, idx) => ({ playerId: e.playerId, seed: idx + 1 }));
 }
+
+// ============================================================================
+// Парный режим (doubles): пара = капитан + партнёр.
+// Единицей турнира является капитан: на нём держится _id/seed для сетки и
+// winner_id для скоринга по сторонам. Посев пар считается по сумме рейтингов.
+// ============================================================================
+
+/** Пара для целей посева: капитан (SeedablePlayer) + рейтинг партнёра. */
+export interface PairForSeeding {
+  /** Капитан пары — на его id ложится посев. */
+  a: SeedablePlayer;
+  /** Партнёр (нужен только его рейтинг). */
+  b?: { rating?: number };
+}
+
+/**
+ * Суммарный рейтинг пары = rating(капитан) + rating(партнёр).
+ * Неизвестные рейтинги считаются за 0.
+ */
+export function pairRating(pair: PairForSeeding): number {
+  const ra = typeof pair.a.rating === 'number' && Number.isFinite(pair.a.rating) ? pair.a.rating : 0;
+  const rb = typeof pair.b?.rating === 'number' && Number.isFinite(pair.b.rating) ? pair.b.rating : 0;
+  return ra + rb;
+}
+
+/**
+ * Автоматически распределяет посев пар по суммарному рейтингу: пары сортируются
+ * по убыванию суммы рейтингов партнёров, первые `count` получают seed 1, 2, 3...
+ * Посев привязан к капитану (playerId = pid(pair.a)).
+ *
+ * @param pairs список пар группы
+ * @param count сколько первых по суммарному рейтингу сделать посеянными (по умолчанию все)
+ * @returns массив записей посева (playerId = капитан)
+ */
+export function seedsByPairs(pairs: PairForSeeding[], count?: number): SeedEntry[] {
+  const sorted = [...pairs]
+    .map((pair) => ({ id: pid(pair.a), rating: pairRating(pair) }))
+    .sort((a, b) => b.rating - a.rating);
+
+  const limit = typeof count === 'number' && count > 0 ? count : sorted.length;
+  return sorted.slice(0, limit).map((p, idx) => ({
+    playerId: p.id,
+    seed: idx + 1,
+  }));
+}

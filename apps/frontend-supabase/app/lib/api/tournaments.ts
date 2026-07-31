@@ -16,6 +16,7 @@ export interface TournamentUI {
   startDate: string;
   endDate: string;
   clubId?: string;
+  format?: 'singles' | 'doubles';
   groups: any[];
   groupsCount?: number;
   playersCount?: number;
@@ -25,7 +26,7 @@ export interface TournamentUI {
 export async function getTournaments(): Promise<TournamentUI[]> {
   const { data: tournaments, error } = await (await createSupabaseServer())
     .from('tournaments')
-    .select('id, name, start_date, end_date, club_id')
+    .select('id, name, start_date, end_date, club_id, format')
     .order('start_date', { ascending: false });
   if (error) throw new Error('Ошибка загрузки турниров');
 
@@ -69,6 +70,7 @@ export async function getTournaments(): Promise<TournamentUI[]> {
       startDate: t.start_date,
       endDate: t.end_date,
       clubId: t.club_id != null ? String(t.club_id) : undefined,
+      format: (t.format as 'singles' | 'doubles') || 'singles',
       groups: [],
       groupsCount: gids.length,
       playersCount: uniquePlayers.size,
@@ -79,7 +81,7 @@ export async function getTournaments(): Promise<TournamentUI[]> {
 export async function getTournamentById(id: string): Promise<any> {
   const { data: t, error } = await (await createSupabaseServer())
     .from('tournaments')
-    .select('id, name, start_date, end_date, club_id')
+    .select('id, name, start_date, end_date, club_id, format')
     .eq('id', id)
     .maybeSingle();
   if (error || !t) throw new Error('Ошибка загрузки турнира');
@@ -112,6 +114,7 @@ export async function getTournamentById(id: string): Promise<any> {
     startDate: t.start_date,
     endDate: t.end_date,
     clubId: t.club_id != null ? String(t.club_id) : undefined,
+    format: (t.format as 'singles' | 'doubles') || 'singles',
     groups: (groups || []).map((g) => ({
       _id: String(g.id),
       name: g.name,
@@ -162,8 +165,9 @@ export async function createTournament(data: any, _accessToken?: string): Promis
       start_date: data.startDate,
       end_date: data.endDate,
       club_id: data.clubId ? Number(data.clubId) : null,
+      format: data.format === 'doubles' ? 'doubles' : 'singles',
     })
-    .select('id, name, start_date, end_date, club_id')
+    .select('id, name, start_date, end_date, club_id, format')
     .single();
   if (error || !row) throw new Error('Ошибка создания турнира');
 
@@ -173,6 +177,7 @@ export async function createTournament(data: any, _accessToken?: string): Promis
     startDate: row.start_date,
     endDate: row.end_date,
     clubId: row.club_id != null ? String(row.club_id) : undefined,
+    format: (row.format as 'singles' | 'doubles') || 'singles',
     groups: [],
   };
 }
@@ -188,9 +193,10 @@ export async function updateTournament(id: string, data: any, _accessToken?: str
       start_date: data.startDate,
       end_date: data.endDate,
       club_id: data.clubId != null ? Number(data.clubId) : null,
+      format: data.format === 'doubles' ? 'doubles' : 'singles',
     })
     .eq('id', id)
-    .select('id, name, start_date, end_date, club_id')
+    .select('id, name, start_date, end_date, club_id, format')
     .single();
   if (error || !row) throw new Error('Ошибка обновления турнира');
   return {
@@ -199,6 +205,7 @@ export async function updateTournament(id: string, data: any, _accessToken?: str
     startDate: row.start_date,
     endDate: row.end_date,
     clubId: row.club_id != null ? String(row.club_id) : undefined,
+    format: (row.format as 'singles' | 'doubles') || 'singles',
     groups: [],
   };
 }
@@ -215,19 +222,68 @@ export async function deleteTournament(id: string, _accessToken?: string): Promi
  * Турнирная сетка группы: раунды с матчами.
  * Замена TournamentsService.getBracket. Формат вывода совместим со старым UI
  * (rounds[].seeds[]: { id, teams[], score, winner, court, status, refereeId, judgedBy }).
+ *
+ * Для парных турниров сторона несёт партнёра (teams[i].partner) и посев тянется
+ * из group_pair_seeds (ключ — капитан пары). Для одиночных — без изменений.
  */
 export async function getGroupBracket(groupId: string): Promise<{ rounds: any[] }> {
-  // Матчи группы + посев
   const supabase = await createSupabaseServer();
+
+  // Формат турнира группы (group → tournament.format). По умолчанию singles.
+  const { data: groupRow } = await supabase
+    .from('groups')
+    .select('id, tournament_id')
+    .eq('id', groupId)
+    .maybeSingle();
+  const tournamentId = groupRow?.tournament_id;
+  let isDoubles = false;
+  if (tournamentId) {
+    const { data: t } = await supabase
+      .from('tournaments')
+      .select('format')
+      .eq('id', tournamentId)
+      .maybeSingle();
+    isDoubles = t?.format === 'doubles';
+  }
+
+  const seedsSource = isDoubles
+    ? supabase.from('group_pair_seeds').select('player_a_id, seed').eq('group_id', groupId)
+    : supabase.from('group_seeds').select('player_id, seed').eq('group_id', groupId);
+
   const [{ data: rows }, { data: seeds }] = await Promise.all([
     supabase.from('v_matches_full').select('*').eq('group_id', groupId).order('round', { ascending: true }),
-    supabase.from('group_seeds').select('player_id, seed').eq('group_id', groupId),
+    seedsSource,
   ]);
 
   if (!rows || !rows.length) return { rounds: [] };
 
+  // Посев: для singles ключ player_id, для doubles — player_a_id (капитан пары).
   const seedByPlayer = new Map<string, number>();
-  for (const s of seeds || []) seedByPlayer.set(String(s.player_id), s.seed);
+  for (const s of seeds || []) {
+    if (isDoubles) seedByPlayer.set(String((s as any).player_a_id), (s as any).seed);
+    else seedByPlayer.set(String((s as any).player_id), (s as any).seed);
+  }
+
+  /** Сторона матча: одиночный игрок или капитан пары + партнёр. */
+  const buildSide = (captainId: any, name: any, photo: any, club: any, partnerId: any, partnerName: any, partnerPhoto: any, partnerClub: any) => {
+    if (captainId == null) return { name: 'BYE' };
+    const side: any = {
+      _id: String(captainId),
+      fullName: name,
+      photoUrl: photo,
+      club,
+      seed: seedByPlayer.get(String(captainId)),
+    };
+    if (isDoubles && partnerId != null) {
+      side.partner = {
+        _id: String(partnerId),
+        fullName: partnerName,
+        photoUrl: partnerPhoto,
+        club: partnerClub,
+      };
+    }
+    return side;
+  };
 
   const maxRound = Math.max(...rows.map((m: any) => m.round || 1));
   const rounds: any[] = [];
@@ -238,24 +294,8 @@ export async function getGroupBracket(groupId: string): Promise<{ rounds: any[] 
       seeds: roundMatches.map((m: any) => ({
         id: String(m.id),
         teams: [
-          m.player1_id != null
-            ? {
-                _id: String(m.player1_id),
-                fullName: m.player1_name,
-                photoUrl: m.player1_photo,
-                club: m.player1_club,
-                seed: seedByPlayer.get(String(m.player1_id)),
-              }
-            : { name: 'BYE' },
-          m.player2_id != null
-            ? {
-                _id: String(m.player2_id),
-                fullName: m.player2_name,
-                photoUrl: m.player2_photo,
-                club: m.player2_club,
-                seed: seedByPlayer.get(String(m.player2_id)),
-              }
-            : { name: 'BYE' },
+          buildSide(m.player1_id, m.player1_name, m.player1_photo, m.player1_club, m.player3_id, m.player3_name, m.player3_photo, m.player3_club),
+          buildSide(m.player2_id, m.player2_name, m.player2_photo, m.player2_club, m.player4_id, m.player4_name, m.player4_photo, m.player4_club),
         ],
         score: m.score,
         scheduledAt: m.scheduled_at,

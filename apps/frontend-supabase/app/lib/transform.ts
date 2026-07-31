@@ -38,12 +38,20 @@ export interface MatchFullRow {
   group_id: string | number | null;
   player1_id: string | number | null;
   player2_id: string | number | null;
+  player3_id: string | number | null;
+  player4_id: string | number | null;
   player1_name: string | null;
   player1_photo: string | null;
   player1_club: string | null;
   player2_name: string | null;
   player2_photo: string | null;
   player2_club: string | null;
+  player3_name: string | null;
+  player3_photo: string | null;
+  player3_club: string | null;
+  player4_name: string | null;
+  player4_photo: string | null;
+  player4_club: string | null;
   score: string | null;
   status: Match['status'];
   scheduled_at: string | null;
@@ -66,29 +74,26 @@ export interface MatchFullRow {
 
 export function toMatch(row: MatchFullRow | null | undefined): Match | null {
   if (!row) return null;
-  const player1: Player | null =
-    row.player1_id != null
-      ? {
-          _id: String(row.player1_id),
-          fullName: row.player1_name || '',
-          photoUrl: row.player1_photo || undefined,
-          club: row.player1_club || undefined,
-        }
-      : null;
-  const player2: Player | null =
-    row.player2_id != null
-      ? {
-          _id: String(row.player2_id),
-          fullName: row.player2_name || '',
-          photoUrl: row.player2_photo || undefined,
-          club: row.player2_club || undefined,
-        }
-      : null;
+  const player1: Player | null = rowToPlayer(
+    row.player1_id, row.player1_name, row.player1_photo, row.player1_club,
+  );
+  const player2: Player | null = rowToPlayer(
+    row.player2_id, row.player2_name, row.player2_photo, row.player2_club,
+  );
+  // Партнёры сторон — только для парных матчей (иначе поля NULL/undefined).
+  const player3: Player | null = rowToPlayer(
+    row.player3_id, row.player3_name, row.player3_photo, row.player3_club,
+  );
+  const player4: Player | null = rowToPlayer(
+    row.player4_id, row.player4_name, row.player4_photo, row.player4_club,
+  );
 
   return {
     _id: String(row.id),
     player1,
     player2,
+    player3,
+    player4,
     score: row.score || undefined,
     status: row.status,
     scheduledAt: row.scheduled_at ? new Date(row.scheduled_at) : undefined,
@@ -110,6 +115,25 @@ export function toMatch(row: MatchFullRow | null | undefined): Match | null {
     refereeId: row.referee_id || null,
     // judgedBy не входит во view; подтягивается отдельно при необходимости
     judgedBy: [],
+  };
+}
+
+/**
+ * Собирает Player из полей стороны view (id/name/photo/club) или null,
+ * если id нет (BYE/слот ещё не заполнен). Используется для всех 4 слотов матча.
+ */
+function rowToPlayer(
+  id: string | number | null | undefined,
+  name: string | null | undefined,
+  photo: string | null | undefined,
+  club: string | null | undefined,
+): Player | null {
+  if (id == null) return null;
+  return {
+    _id: String(id),
+    fullName: name || '',
+    photoUrl: photo || undefined,
+    club: club || undefined,
   };
 }
 

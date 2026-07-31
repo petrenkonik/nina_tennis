@@ -26,7 +26,7 @@ function AdminTournamentsPage() {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');
   const [showForm, setShowForm] = useState(false);
-  const [form, setForm] = useState<Partial<Tournament>>({ name: '', startDate: '', endDate: '', clubId: '' });
+  const [form, setForm] = useState<Partial<Tournament>>({ name: '', startDate: '', endDate: '', clubId: '', format: 'singles' });
   const [editId, setEditId] = useState<string | null>(null);
   const [tab, setTab] = useState<'all' | 'active' | 'finished'>('all');
   const [search, setSearch] = useState('');
@@ -51,12 +51,12 @@ function AdminTournamentsPage() {
   }, []);
 
   function openCreate() {
-    setForm({ name: '', startDate: '', endDate: '', clubId: '' });
+    setForm({ name: '', startDate: '', endDate: '', clubId: '', format: 'singles' });
     setEditId(null);
     setShowForm(true);
   }
   function openEdit(t: Tournament) {
-    setForm({ name: t.name, startDate: t.startDate, endDate: t.endDate, clubId: t.clubId || '' });
+    setForm({ name: t.name, startDate: t.startDate, endDate: t.endDate, clubId: t.clubId || '', format: t.format || 'singles' });
     setEditId(t._id);
     setShowForm(true);
   }
@@ -163,6 +163,11 @@ function AdminTournamentsPage() {
                 <span className="bg-brand-100 dark:bg-brand-900/30 text-brand-800 dark:text-brand-300 rounded px-2 py-1">
                   {getTournamentStatus(t)}
                 </span>
+                {t.format === 'doubles' && (
+                  <span className="bg-purple-100 dark:bg-purple-900/30 text-purple-800 dark:text-purple-300 rounded px-2 py-1" title="Парный турнир (2×2)">
+                    👥 Парный
+                  </span>
+                )}
                 <button
                   className="bg-surface-muted text-content rounded px-2 py-1 hover:text-brand-600"
                   title="Участники распределены по группам"
@@ -259,6 +264,20 @@ function AdminTournamentsPage() {
                   {clubs.map((club) => (
                     <option key={club._id} value={club._id}>{club.name}</option>
                   ))}
+                </select>
+              </div>
+              {/* Формат турнира: менять нельзя после создания (формат наследуют группы). */}
+              <div>
+                <label className="block text-xs text-content-muted mb-1">Формат</label>
+                <select
+                  className={inputCls}
+                  value={form.format || 'singles'}
+                  onChange={(e) => setForm((f) => ({ ...f, format: e.target.value as 'singles' | 'doubles' }))}
+                  disabled={!!editId}
+                  title={editId ? 'Формат нельзя изменить у существующего турнира' : 'Одиночный или парный турнир'}
+                >
+                  <option value="singles">Одиночный (1×1)</option>
+                  <option value="doubles">Парный (2×2)</option>
                 </select>
               </div>
               <div className="flex gap-2 justify-end pt-1">

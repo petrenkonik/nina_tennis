@@ -85,6 +85,11 @@ export async function updateMatch(groupId: string, matchId: string, data: any, _
     patch.player1_id = data.player1Id ? Number(data.player1Id) : null;
   if (data.player2Id !== undefined)
     patch.player2_id = data.player2Id ? Number(data.player2Id) : null;
+  // Партнёры сторон (парный режим) — сохраняем, если переданы.
+  if (data.player3Id !== undefined)
+    patch.player3_id = data.player3Id ? Number(data.player3Id) : null;
+  if (data.player4Id !== undefined)
+    patch.player4_id = data.player4Id ? Number(data.player4Id) : null;
 
   // Судья, сохраняющий матч, фиксируется (как в backend — для referee).
   if (user && user.role === 'referee' && !data.refereeId) {

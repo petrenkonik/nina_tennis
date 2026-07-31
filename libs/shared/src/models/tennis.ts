@@ -17,8 +17,12 @@ export interface Match {
   _id: string;
   /** id группы, к которой привязан матч (для публичного табло). */
   groupId?: string;
-  player1: Player | null; // null если bye
-  player2: Player | null;
+  player1: Player | null; // null если bye; в парном матче — капитан стороны 1
+  player2: Player | null; // в парном матче — капитан стороны 2
+  /** Партнёр стороны 1 (только парные матчи; иначе null/undefined). */
+  player3?: Player | null;
+  /** Партнёр стороны 2 (только парные матчи; иначе null/undefined). */
+  player4?: Player | null;
   score?: string; // "6:4, 7:5"
   status: 'scheduled' | 'in_progress' | 'finished' | 'canceled';
   scheduledAt?: Date;
@@ -46,6 +50,8 @@ export interface Tournament {
   startDate: string; // ISO
   endDate: string;   // ISO
   clubId?: string;
+  /** Формат турнира: одиночный (по умолчанию) или парный. */
+  format?: 'singles' | 'doubles';
   groups: Group[];
 }
 

@@ -1,6 +1,7 @@
 "use client";
 import React, { useEffect, useMemo, useState } from 'react';
 import { useParams, useRouter } from 'next/navigation';
+import PairsEditor from './PairsEditor';
 import {
   getGroupById,
   getPlayers,
@@ -252,6 +253,9 @@ export default function GroupUsersEditorPage() {
           <Skeleton className="h-20 w-full" />
         </div>
       ) : group ? (
+        group.format === 'doubles' ? (
+          <PairsEditor groupId={groupId} />
+        ) : (
         <div className="space-y-4">
           {/* Панель действий над посевом */}
           <Card>
@@ -483,6 +487,7 @@ export default function GroupUsersEditorPage() {
             )}
           </div>
         </div>
+        )
       ) : null}
     </main>
   );

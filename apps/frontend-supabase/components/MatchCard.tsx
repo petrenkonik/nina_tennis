@@ -6,7 +6,7 @@ import BracketPlayerRow from './BracketPlayerRow';
 
 /** Игрок в матче: либо полный объект (с _id), либо BYE-слот {name:'BYE'}. */
 export type BracketPlayer =
-  | { _id: string; fullName?: string; photoUrl?: string; club?: string; seed?: number }
+  | { _id: string; fullName?: string; photoUrl?: string; club?: string; seed?: number; partner?: { _id: string; fullName?: string; photoUrl?: string; club?: string } }
   | { name: 'BYE' }
   | null
   | undefined;
@@ -137,22 +137,28 @@ export default function MatchCard({
 
       {/* Игроки */}
       <div className="p-1.5 space-y-1">
-        <BracketPlayerRow
-          player={p1 as any}
-          isWinner={p1Won}
-          isServer={serverLeft}
-          undecided={!hasWinner}
-          compact={compact}
-          placeholder={isTbd ? 'Ожидается соперник' : undefined}
-        />
-        <BracketPlayerRow
-          player={p2 as any}
-          isWinner={p2Won}
-          isServer={serverRight}
-          undecided={!hasWinner}
-          compact={compact}
-          placeholder={isTbd ? 'Ожидается соперник' : undefined}
-        />
+        <div className="space-y-0.5">
+          <BracketPlayerRow
+            player={p1 as any}
+            isWinner={p1Won}
+            isServer={serverLeft}
+            undecided={!hasWinner}
+            compact={compact}
+            placeholder={isTbd ? 'Ожидается соперник' : undefined}
+          />
+          <PartnerRow partner={partnerOf(p1)} compact={compact} />
+        </div>
+        <div className="space-y-0.5">
+          <BracketPlayerRow
+            player={p2 as any}
+            isWinner={p2Won}
+            isServer={serverRight}
+            undecided={!hasWinner}
+            compact={compact}
+            placeholder={isTbd ? 'Ожидается соперник' : undefined}
+          />
+          <PartnerRow partner={partnerOf(p2)} compact={compact} />
+        </div>
       </div>
 
       {/* Счёт по сетам */}
@@ -197,6 +203,42 @@ export default function MatchCard({
     );
   }
   return inner;
+}
+
+/** Извлекает партнёра из слота стороны (партнёр есть только в парных матчах). */
+function partnerOf(p: BracketPlayer): { _id: string; fullName?: string; photoUrl?: string; club?: string } | undefined {
+  if (p && '_id' in p && p.partner) return p.partner;
+  return undefined;
+}
+
+/**
+ * Компактная мини-строка партнёра стороны (для парных матчей).
+ * Показывается под основным игроком стороны: «+ Имя».
+ */
+function PartnerRow({
+  partner,
+  compact,
+}: {
+  partner?: { _id: string; fullName?: string; photoUrl?: string; club?: string };
+  compact?: boolean;
+}) {
+  if (!partner) return null;
+  return (
+    <div className={cx('flex items-center gap-1.5 pl-1', compact ? 'min-h-[1.25rem]' : 'min-h-[1.5rem]')}>
+      <span className="text-content-muted text-[0.7rem]">+</span>
+      {partner.photoUrl ? (
+        // eslint-disable-next-line @next/next/no-img-element
+        <img
+          src={partner.photoUrl}
+          alt={partner.fullName || ''}
+          className={cx('rounded-full border border-surface-border object-cover', compact ? 'w-4 h-4' : 'w-5 h-5')}
+        />
+      ) : (
+        <div className={cx('rounded-full bg-surface-muted', compact ? 'w-4 h-4' : 'w-5 h-5')} />
+      )}
+      <span className="truncate text-xs text-content-muted flex-1">{partner.fullName}</span>
+    </div>
+  );
 }
 
 /** Извлекает читаемое имя судьи из populate-объекта или строки-id. */

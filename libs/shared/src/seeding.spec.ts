@@ -5,6 +5,8 @@ import {
   seedsByRating,
   removeAndRenumber,
   swapSeeds,
+  pairRating,
+  seedsByPairs,
   type SeedEntry,
 } from './seeding';
 
@@ -156,6 +158,44 @@ function test_swapSeeds_invalidSeed() {
   eq(r, [{ playerId: 'a', seed: 1 }], 'invalid seed → unchanged');
 }
 
+// --- Парный режим (doubles) ---
+
+function test_pairRating_sums() {
+  eq(pairRating({ a: { _id: '1', rating: 700 }, b: { rating: 300 } }), 1000, 'pair rating = sum');
+  eq(pairRating({ a: { _id: '1', rating: 500 } }), 500, 'missing partner rating → captain only');
+  eq(pairRating({ a: { _id: '1' } }), 0, 'no ratings → 0');
+}
+
+function test_seedsByPairs_desc() {
+  const pairs = [
+    { a: { _id: 'cap_low', rating: 100 }, b: { rating: 100 } },   // сумма 200
+    { a: { _id: 'cap_high', rating: 900 }, b: { rating: 500 } },   // сумма 1400
+    { a: { _id: 'cap_mid', rating: 400 }, b: { rating: 400 } },    // сумма 800
+  ];
+  const r = seedsByPairs(pairs);
+  eq(
+    r,
+    [
+      { playerId: 'cap_high', seed: 1 },
+      { playerId: 'cap_mid', seed: 2 },
+      { playerId: 'cap_low', seed: 3 },
+    ],
+    'pairs sorted by rating sum desc, seed on captain',
+  );
+}
+
+function test_seedsByPairs_withCount() {
+  const pairs = [
+    { a: { _id: 'a', rating: 900 }, b: { rating: 900 } },
+    { a: { _id: 'b', rating: 500 }, b: { rating: 500 } },
+    { a: { _id: 'c', rating: 100 }, b: { rating: 100 } },
+  ];
+  const r = seedsByPairs(pairs, 2);
+  eq(r.length, 2, 'count limit');
+  eq(r[0].playerId, 'a', 'top pair first');
+  eq(r[1].playerId, 'b', 'second pair');
+}
+
 // --- Run ---
 test_normalize_dedupesPlayer();
 test_normalize_dedupesSeedNumber();
@@ -168,6 +208,9 @@ test_seedsByRating_withCount();
 test_removeAndRenumber();
 test_swapSeeds();
 test_swapSeeds_invalidSeed();
+test_pairRating_sums();
+test_seedsByPairs_desc();
+test_seedsByPairs_withCount();
 
 console.log(`\n${passed} passed, ${failed} failed`);
 if (failed > 0) {

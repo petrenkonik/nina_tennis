@@ -93,18 +93,21 @@ export default function GroupBracketEditor() {
     if (!editingMatch) return;
     setSaving(true); setError('');
     try {
-      // Нормализуем игроков к id для бэка
+      const isDoubles = group?.format === 'doubles';
+      // Нормализуем игроков к id для бэка.
+      // Парный режим: player1/player3 — капитан+партнёр стороны 1, player2/player4 — стороны 2.
       const payload: any = {
-        player1: editingMatch.player1?._id || null,
-        player2: editingMatch.player2?._id || null,
+        player1Id: editingMatch.player1?._id || null,
+        player2Id: editingMatch.player2?._id || null,
         round: editingMatch.round ?? 1,
         status: editingMatch.status,
         court: editingMatch.court || '',
         score: editingMatch.score || '',
         winnerId: editingMatch.winnerId || null,
       };
-      if (editingMatch.scheduledAt) {
-        payload.scheduledAt = new Date(editingMatch.scheduledAt).toISOString();
+      if (isDoubles) {
+        payload.player3Id = editingMatch.player3?._id || null;
+        payload.player4Id = editingMatch.player4?._id || null;
       }
       const updated = await updateMatch(groupId, editingMatch._id, payload);
       setMatches(matches.map(m => String(m._id) === String(editingMatch._id) ? { ...m, ...updated, player1: editingMatch.player1, player2: editingMatch.player2 } : m));
@@ -190,9 +193,15 @@ export default function GroupBracketEditor() {
               </button>
             </div>
             <div className="flex gap-4">
-              <span>{m.player1 ? m.player1.fullName : <span className="text-gray-400">—</span>}</span>
+              <span>
+                {m.player1 ? m.player1.fullName : <span className="text-gray-400">—</span>}
+                {m.player3 && <span className="text-gray-500"> / {m.player3.fullName}</span>}
+              </span>
               <span>vs</span>
-              <span>{m.player2 ? m.player2.fullName : <span className="text-gray-400">—</span>}</span>
+              <span>
+                {m.player2 ? m.player2.fullName : <span className="text-gray-400">—</span>}
+                {m.player4 && <span className="text-gray-500"> / {m.player4.fullName}</span>}
+              </span>
             </div>
             <div>Счёт: {m.score || <span className="text-gray-400">—</span>}</div>
             <div>Победитель: {players.find((p: any) => p._id === m.winnerId)?.fullName || <span className="text-gray-400">—</span>}</div>

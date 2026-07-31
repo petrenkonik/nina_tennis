@@ -16,14 +16,18 @@ export interface BracketViewProps {
   /** Построить ссылку для клика по матчу (matchId → href). */
   matchHref?: (matchId: string) => string;
   compact?: boolean;
+  /** Парный режим: карточки выше (партнёр под каждым игроком стороны). */
+  doubles?: boolean;
   className?: string;
 }
 
-const MATCH_HEIGHT = 132; // высота карточки матча, px (реальная: шапка+2 игрока+футер)
+const MATCH_HEIGHT_SINGLES = 132; // высота карточки матча, px (шапка+2 игрока+футер)
+const MATCH_HEIGHT_DOUBLES = 188; // парный матч: доп. строки партнёров (+~56px)
 const MATCH_GAP = 20; // базовый зазор между матчами в первом раунде, px
 
-export default function BracketView({ rounds, matchHref, compact, className }: BracketViewProps) {
+export default function BracketView({ rounds, matchHref, compact, doubles, className }: BracketViewProps) {
   const [zoom, setZoom] = useState(1);
+  const MATCH_HEIGHT = doubles ? MATCH_HEIGHT_DOUBLES : MATCH_HEIGHT_SINGLES;
 
   const resetZoom = () => setZoom(1);
 

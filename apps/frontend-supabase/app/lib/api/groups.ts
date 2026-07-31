@@ -10,6 +10,10 @@ import { toPlayer, toMatch } from '../transform';
  * Группы. Замена NestJS GroupsController.
  * Включает генерацию сетки (generateKnockoutBracket из libs/shared — устраняет
  * дублирование, которое было в backend).
+ *
+ * Парный режим (doubles): единицей турнира является пара (капитан + партнёр).
+ * Посев и хранение — отдельными таблицами group_pairs / group_pair_seeds.
+ * Скоринг не меняется: он считает по сторонам 1/2.
  */
 
 export interface GroupUI {
@@ -19,9 +23,29 @@ export interface GroupUI {
   tournamentId?: string | null;
   /** то же в snake_case для внутреннего использования */
   tournament_id?: string | null;
+  /** Формат турнира (наследуется от турнира группы). */
+  format?: 'singles' | 'doubles';
   players: any[];
   matches: any[];
   seededPlayers?: { playerId: string; seed: number }[];
+  /** Пары группы — только для doubles. a — капитан (единица турнира). */
+  pairs?: { a: any; b: any; seed?: number }[];
+}
+
+/** Узнать формат турнира группы. null, если турнир не задан. */
+async function getGroupFormat(groupId: string): Promise<'singles' | 'doubles' | null> {
+  const { data: g } = await (await createSupabaseServer())
+    .from('groups')
+    .select('tournament_id')
+    .eq('id', groupId)
+    .maybeSingle();
+  if (!g?.tournament_id) return null;
+  const { data: t } = await (await createSupabaseServer())
+    .from('tournaments')
+    .select('format')
+    .eq('id', g.tournament_id)
+    .maybeSingle();
+  return t?.format === 'doubles' ? 'doubles' : 'singles';
 }
 
 export async function getGroups(): Promise<GroupUI[]> {
@@ -45,7 +69,31 @@ export async function getGroupById(id: string): Promise<GroupUI | null> {
     .maybeSingle();
   if (error || !g) throw new Error('Ошибка загрузки группы');
 
-  // Игроки группы
+  const format = await getGroupFormat(id);
+
+  // --- Парный режим: грузим пары + посев пар ---
+  if (format === 'doubles') {
+    const pairs = await getGroupPairs(id);
+    // Для совместимости: players заполняем всеми игроками из пар (для поиска/создания).
+    const allPairPlayerIds = new Set<string>();
+    for (const p of pairs) {
+      if (p.a?._id) allPairPlayerIds.add(String(p.a._id));
+      if (p.b?._id) allPairPlayerIds.add(String(p.b._id));
+    }
+    return {
+      _id: String(g.id),
+      name: g.name,
+      tournamentId: g.tournament_id ? String(g.tournament_id) : null,
+      tournament_id: g.tournament_id ? String(g.tournament_id) : null,
+      format,
+      players: [],
+      pairs,
+      matches: [],
+      seededPlayers: [],
+    };
+  }
+
+  // --- Одиночный режим: игроки + посев ---
   const { data: gp } = await (await createSupabaseServer())
     .from('group_players')
     .select('player_id')
@@ -69,6 +117,7 @@ export async function getGroupById(id: string): Promise<GroupUI | null> {
     name: g.name,
     tournamentId: g.tournament_id ? String(g.tournament_id) : null,
     tournament_id: g.tournament_id ? String(g.tournament_id) : null,
+    format,
     players,
     matches: [],
     seededPlayers,
@@ -101,6 +150,59 @@ export async function getSeededPlayers(groupId: string): Promise<{ playerId: str
     .order('seed', { ascending: true });
   if (error) throw new Error('Ошибка загрузки посеянных игроков');
   return (data || []).map((r) => ({ playerId: String(r.player_id), seed: r.seed }));
+}
+
+// ---- Парный режим (doubles): пары и посев пар ----
+
+/**
+ * Пары группы с объектами игроков и seed.
+ * a — капитан (единица турнира), b — партнёр.
+ */
+export async function getGroupPairs(groupId: string): Promise<{ a: any; b: any; seed?: number }[]> {
+  const { data: pairRows, error } = await (await createSupabaseServer())
+    .from('group_pairs')
+    .select('player_a_id, player_b_id')
+    .eq('group_id', groupId);
+  if (error) throw new Error('Ошибка загрузки пар группы');
+
+  const { data: seedRows } = await (await createSupabaseServer())
+    .from('group_pair_seeds')
+    .select('player_a_id, seed')
+    .eq('group_id', groupId);
+  const seedByCaptain = new Map<string, number>();
+  for (const s of seedRows || []) seedByCaptain.set(String(s.player_a_id), s.seed);
+
+  // Подтягиваем объекты всех игроков пар одним запросом.
+  const ids = new Set<string>();
+  for (const r of pairRows || []) {
+    ids.add(String(r.player_a_id));
+    ids.add(String(r.player_b_id));
+  }
+  if (!ids.size) return [];
+
+  const { data: playerRows } = await (await createSupabaseServer())
+    .from('players')
+    .select('id, full_name, birth_year, gender, club, photo_url, rating')
+    .in('id', [...ids]);
+  const byId = new Map<string, any>();
+  for (const r of playerRows || []) byId.set(String(r.id), toPlayer(r));
+
+  return (pairRows || []).map((r) => ({
+    a: byId.get(String(r.player_a_id)),
+    b: byId.get(String(r.player_b_id)),
+    seed: seedByCaptain.get(String(r.player_a_id)),
+  })).filter((p) => p.a && p.b);
+}
+
+/** Посев пар группы (ключ — капитан пары). */
+export async function getGroupPairSeeds(groupId: string): Promise<{ playerId: string; seed: number }[]> {
+  const { data, error } = await (await createSupabaseServer())
+    .from('group_pair_seeds')
+    .select('player_a_id, seed')
+    .eq('group_id', groupId)
+    .order('seed', { ascending: true });
+  if (error) throw new Error('Ошибка загрузки посева пар');
+  return (data || []).map((r) => ({ playerId: String(r.player_a_id), seed: r.seed }));
 }
 
 export async function createGroup(data: any, _accessToken?: string): Promise<GroupUI> {
@@ -150,6 +252,13 @@ export async function updateGroup(id: string, data: any, _accessToken?: string):
   if (Array.isArray(data.seededPlayers)) {
     await syncGroupSeeds(id, data.seededPlayers);
   }
+  // Парный режим: пары и посев пар (если переданы)
+  if (Array.isArray(data.pairs)) {
+    await syncGroupPairs(id, data.pairs);
+  }
+  if (Array.isArray(data.pairSeeds)) {
+    await syncGroupPairSeeds(id, data.pairSeeds);
+  }
 
   return { _id: String(row.id), name: row.name };
 }
@@ -183,6 +292,9 @@ export async function addMatch(groupId: string, data: any, _accessToken?: string
       group_id: Number(groupId),
       player1_id: data.player1Id != null ? Number(data.player1Id) : null,
       player2_id: data.player2Id != null ? Number(data.player2Id) : null,
+      // Партнёры сторон (парный режим) — опционально.
+      player3_id: data.player3Id != null ? Number(data.player3Id) : null,
+      player4_id: data.player4Id != null ? Number(data.player4Id) : null,
       score: data.score ?? null,
       status: data.status ?? 'scheduled',
       round: data.round ?? null,
@@ -207,6 +319,11 @@ export async function deleteMatch(groupId: string, matchId: string, _accessToken
  * Генерация олимпийской сетки (single elimination, snake-seeding) для группы.
  * Замена GroupsController.generateMatches. Переиспользует generateKnockoutBracket
  * из libs/shared (раньше код дублировался в backend).
+ *
+ * Парный режим: единицей турнира является пара (капитан). Генератор работает
+ * над «единицами» — для пар это объект { _id: captainId, seed, partnerId }.
+ * При записи матча капитан стороны 1 → player1_id, партнёр → player3_id;
+ * капитан стороны 2 → player2_id, партнёр → player4_id.
  */
 export async function generateMatches(groupId: string, _accessToken?: string): Promise<any[]> {
   const user = await getCurrentUser();
@@ -214,15 +331,29 @@ export async function generateMatches(groupId: string, _accessToken?: string): P
 
   const group = await getGroupById(groupId);
   if (!group) throw new Error('Group not found');
-  const seeds = await getSeededPlayers(groupId);
+  const isDoubles = group.format === 'doubles';
 
-  // Игроки с seed
-  const playersWithSeed = group.players.map((p: any) => {
-    const seedObj = seeds.find((s) => s.playerId === String(p._id));
-    return seedObj ? { ...p, seed: seedObj.seed } : p;
-  });
+  // Единицы турнира: игрок (singles) или капитан пары с partnerId (doubles).
+  let units: any[];
+  if (isDoubles) {
+    const pairSeeds = await getGroupPairSeeds(groupId);
+    units = (group.pairs || []).map((pair: any) => {
+      const seedObj = pairSeeds.find((s) => s.playerId === String(pair.a._id));
+      return {
+        _id: String(pair.a._id),
+        seed: seedObj?.seed,
+        partnerId: pair.b?._id ? String(pair.b._id) : undefined,
+      };
+    });
+  } else {
+    const seeds = await getSeededPlayers(groupId);
+    units = group.players.map((p: any) => {
+      const seedObj = seeds.find((s) => s.playerId === String(p._id));
+      return seedObj ? { ...p, seed: seedObj.seed } : p;
+    });
+  }
 
-  const rounds = generateKnockoutBracket(playersWithSeed);
+  const rounds = generateKnockoutBracket(units);
 
   // Удаляем старые матчи группы (каскадно почистит match_judges)
   const { data: old } = await (await createSupabaseServer())
@@ -237,16 +368,22 @@ export async function generateMatches(groupId: string, _accessToken?: string): P
   const created: any[] = [];
   for (const round of rounds) {
     for (const m of round) {
+      const insertRow: any = {
+        group_id: Number(groupId),
+        player1_id: m.player1?._id ? Number(m.player1._id) : null,
+        player2_id: m.player2?._id ? Number(m.player2._id) : null,
+        round: m.round,
+        status: 'scheduled',
+        court: '',
+      };
+      // Партнёры сторон — только для парного режима.
+      if (isDoubles) {
+        insertRow.player3_id = m.player1?.partnerId ? Number(m.player1.partnerId) : null;
+        insertRow.player4_id = m.player2?.partnerId ? Number(m.player2.partnerId) : null;
+      }
       const { data: row, error } = await (await createSupabaseServer())
         .from('matches')
-        .insert({
-          group_id: Number(groupId),
-          player1_id: m.player1?._id ? Number(m.player1._id) : null,
-          player2_id: m.player2?._id ? Number(m.player2._id) : null,
-          round: m.round,
-          status: 'scheduled',
-          court: '',
-        })
+        .insert(insertRow)
         .select('id')
         .single();
       if (!error && row) created.push(row);
@@ -293,6 +430,38 @@ async function syncGroupSeeds(groupId: string, seededPlayers: { playerId: string
       seededPlayers.map((s) => ({
         group_id: Number(groupId),
         player_id: Number(s.playerId),
+        seed: s.seed,
+      })),
+    );
+  }
+}
+
+/**
+ * Полная замена пар группы. pairs: [{ aId, bId }] — капитан + партнёр.
+ * Конфликт уникальности по капитану (PK) не допускает двух пар на одном капитане.
+ */
+async function syncGroupPairs(groupId: string, pairs: { aId: string; bId: string }[]) {
+  await (await createSupabaseServer()).from('group_pairs').delete().eq('group_id', groupId);
+  const valid = pairs.filter((p) => p.aId && p.bId && p.aId !== p.bId);
+  if (valid.length) {
+    await (await createSupabaseServer()).from('group_pairs').insert(
+      valid.map((p) => ({
+        group_id: Number(groupId),
+        player_a_id: Number(p.aId),
+        player_b_id: Number(p.bId),
+      })),
+    );
+  }
+}
+
+/** Полная замена посева пар группы (ключ — капитан пары). */
+async function syncGroupPairSeeds(groupId: string, seeds: { playerId: string; seed: number }[]) {
+  await (await createSupabaseServer()).from('group_pair_seeds').delete().eq('group_id', groupId);
+  if (seeds.length) {
+    await (await createSupabaseServer()).from('group_pair_seeds').insert(
+      seeds.map((s) => ({
+        group_id: Number(groupId),
+        player_a_id: Number(s.playerId),
         seed: s.seed,
       })),
     );

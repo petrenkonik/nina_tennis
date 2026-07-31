@@ -92,6 +92,7 @@ export default function BracketPage() {
         <BracketView
           rounds={visibleRounds}
           matchHref={(matchId) => `/m/${matchId}`}
+          doubles={group?.format === 'doubles'}
         />
       </div>
     </MainLayout>
