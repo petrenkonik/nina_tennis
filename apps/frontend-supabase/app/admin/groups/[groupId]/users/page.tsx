@@ -9,7 +9,7 @@ import {
   createPlayer,
   getClubs,
   getTournaments,
-} from 'app/lib/api';
+} from 'app/lib/client';
 import AdminMenu from 'components/AdminMenu';
 import { Button, Card, CardBody, Skeleton, StatusBadge } from 'components/ui';
 import { SeedBadge } from 'components/ui/SeedBadge';

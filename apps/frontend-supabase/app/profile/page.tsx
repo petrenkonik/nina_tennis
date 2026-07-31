@@ -6,7 +6,7 @@ import { useRouter } from 'next/navigation';
 import MainLayout from 'app/main-layout';
 import { Card, CardBody, Button, Skeleton } from 'components/ui';
 import { FaUser, FaSave, FaCheckCircle, FaExclamationTriangle, FaSignOutAlt } from 'react-icons/fa';
-import { getMyProfile, updateMyProfile } from 'app/lib/api';
+import { getMyProfile, updateMyProfile } from 'app/lib/client';
 import { supabaseBrowser } from 'app/lib/supabase/browser';
 import { useSupabaseSession } from 'app/lib/useSupabaseSession';
 

@@ -6,7 +6,7 @@ import Link from 'next/link';
 import MainLayout from 'app/main-layout';
 import { Skeleton, StatusBadge, ScorePill, Button } from 'components/ui';
 import { FaChevronLeft, FaChevronRight, FaCalendarAlt } from 'react-icons/fa';
-import { getTournamentById, getTournamentMatches } from 'app/lib/api';
+import { getTournamentById, getTournamentMatches } from 'app/lib/client';
 import { getPlayerAvatarUrl } from 'app/lib/avatar';
 import { cx } from 'components/ui/cx';
 import type { Match, Tournament } from '@shared/models/tennis';

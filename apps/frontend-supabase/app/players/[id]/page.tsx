@@ -5,7 +5,7 @@ import { useParams } from 'next/navigation';
 import Link from 'next/link';
 import MainLayout from 'app/main-layout';
 import { Skeleton, StatusBadge, ScorePill, Card, CardBody } from 'components/ui';
-import { getPlayerById, getPlayerMatches } from 'app/lib/api';
+import { getPlayerById, getPlayerMatches } from 'app/lib/client';
 import { getPlayerAvatarUrl } from 'app/lib/avatar';
 import { cx } from 'components/ui/cx';
 import { parseScore } from 'components/ui/ScorePill';

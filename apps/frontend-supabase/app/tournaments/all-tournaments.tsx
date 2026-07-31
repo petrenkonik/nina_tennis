@@ -4,7 +4,7 @@ import React, { useState, useEffect } from 'react';
 import { Select, SelectTrigger, SelectValue, SelectContent, SelectItem } from "../../components/ui/select";
 import MainMenu from '../../components/MainMenu';
 import Link from 'next/link';
-import { getTournaments, getClubs } from 'app/lib/api';
+import { getTournaments, getClubs } from 'app/lib/client';
 import MainLayout from 'app/main-layout';
 
 const ageOptions = ["Все", "U18", "U21"];

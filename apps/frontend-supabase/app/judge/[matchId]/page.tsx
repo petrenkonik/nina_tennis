@@ -2,7 +2,7 @@
 
 import React, { useEffect, useState } from 'react';
 import { useParams, useRouter } from 'next/navigation';
-import { getMatch } from 'app/lib/api';
+import { getMatch } from 'app/lib/client';
 
 /**
  * Шорткат-роут для судей: /judge/<matchId>.

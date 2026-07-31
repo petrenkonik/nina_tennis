@@ -1,6 +1,6 @@
 "use client";
 import React, { useEffect, useState } from 'react';
-import { createGroup, getTournaments, updateGroup, deleteGroup, getTournamentById } from 'app/lib/api';
+import { createGroup, getTournaments, updateGroup, deleteGroup, getTournamentById } from 'app/lib/client';
 import { useParams, useRouter } from 'next/navigation';
 import AdminMenu from 'components/AdminMenu';
 import { Button, Card } from 'components/ui';

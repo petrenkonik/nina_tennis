@@ -3,7 +3,7 @@ import React, { useEffect, useState } from 'react';
 import AdminMenu from 'components/AdminMenu';
 import { Button, Card, Skeleton } from 'components/ui';
 import { FaEdit, FaTrash, FaCheck, FaTimes, FaPlus } from 'react-icons/fa';
-import { getClubs, createClub, updateClub, deleteClub } from 'app/lib/api';
+import { getClubs, createClub, updateClub, deleteClub } from 'app/lib/client';
 export default function ClubsPage() {
   const [clubs, setClubs] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);

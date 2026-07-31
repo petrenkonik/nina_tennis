@@ -5,7 +5,7 @@ import Link from "next/link";
 import MainLayout from "app/main-layout";
 import BracketView from "components/BracketView";
 import { Skeleton } from "components/ui";
-import { getGroupBracket, getGroupById, getTournamentById } from 'app/lib/api';
+import { getGroupBracket, getGroupById, getTournamentById } from 'app/lib/client';
 import { Tournament } from "@shared/models/tennis";
 
 export default function BracketPage() {
