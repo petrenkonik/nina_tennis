@@ -273,7 +273,7 @@ export default function GroupBracketEditor() {
             </div>
             <div>Счёт: {m.score || <span className="text-gray-400">—</span>}</div>
             <div>Победитель: {players.find((p: any) => p._id === m.winnerId)?.fullName || <span className="text-gray-400">—</span>}</div>
-            <div>Дата: {m.scheduledAt ? new Date(m.scheduledAt).toLocaleString() : <span className="text-gray-400">—</span>}</div>
+            <div>Дата: {m.scheduledAt ? new Date(m.scheduledAt).toLocaleString('ru-RU', { hour12: false }) : <span className="text-gray-400">—</span>}</div>
           </div>
         ))}
       </div>

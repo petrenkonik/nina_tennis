@@ -287,7 +287,7 @@ function ScheduleMatchCard({ match }: { match: Match }) {
   const p1 = match.player1;
   const p2 = match.player2;
   const time = match.scheduledAt
-    ? new Date(match.scheduledAt).toLocaleTimeString('ru-RU', { hour: '2-digit', minute: '2-digit' })
+    ? new Date(match.scheduledAt).toLocaleTimeString('ru-RU', { hour: '2-digit', minute: '2-digit', hour12: false })
     : null;
   const refereeNames = (match.judgedBy || [])
     .map((j) => typeof j === 'object' ? [j.firstName, j.lastName].filter(Boolean).join(' ').trim() || j.email : null)

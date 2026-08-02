@@ -231,7 +231,7 @@ function PlayerMatchRow({ match, playerId }: { match: Match; playerId: string })
     ? new Date(dateStr).toLocaleDateString('ru-RU', { day: 'numeric', month: 'short', year: 'numeric' })
     : null;
   const timeLabel = match.scheduledAt
-    ? new Date(match.scheduledAt).toLocaleTimeString('ru-RU', { hour: '2-digit', minute: '2-digit' })
+    ? new Date(match.scheduledAt).toLocaleTimeString('ru-RU', { hour: '2-digit', minute: '2-digit', hour12: false })
     : null;
 
   return (

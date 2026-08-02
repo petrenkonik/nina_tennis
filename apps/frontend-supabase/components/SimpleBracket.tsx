@@ -67,7 +67,7 @@ const SimpleBracket: React.FC<SimpleBracketProps> = ({ rounds }) => {
                         {(() => {
                           const dt = new Date(match.playedAt || match.scheduledAt);
                           const dateStr = dt.toLocaleDateString('ru-RU', { day: 'numeric', month: 'long' });
-                          const timeStr = dt.toLocaleTimeString('ru-RU', { hour: '2-digit', minute: '2-digit' });
+                          const timeStr = dt.toLocaleTimeString('ru-RU', { hour: '2-digit', minute: '2-digit', hour12: false });
                           return `${timeStr}, ${dateStr}`;
                         })()}
                       </div>
