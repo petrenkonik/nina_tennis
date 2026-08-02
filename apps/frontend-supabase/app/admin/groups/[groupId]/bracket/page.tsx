@@ -29,6 +29,7 @@ export default function GroupBracketEditor() {
   const [matches, setMatches] = useState<any[]>([]);
   const [editingMatch, setEditingMatch] = useState<any>(null);
   const [players, setPlayers] = useState<any[]>([]);
+  const [pairs, setPairs] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState('');
@@ -41,6 +42,7 @@ export default function GroupBracketEditor() {
     getGroupById(groupId).then(g => {
       setGroup(g);
       setPlayers(g.players || []);
+      setPairs(g.pairs || []);
       setLoading(false);
       if (g.tournamentId) {
         getTournamentById(g.tournamentId).then(setTournament);
@@ -106,6 +108,7 @@ export default function GroupBracketEditor() {
       const isDoubles = group?.format === 'doubles';
       // Нормализуем игроков к id для бэка.
       // Парный режим: player1/player3 — капитан+партнёр стороны 1, player2/player4 — стороны 2.
+      // Капитан — это a пары, партнёр — b (см. getGroupPairs).
       const payload: any = {
         player1Id: editingMatch.player1?._id || null,
         player2Id: editingMatch.player2?._id || null,
@@ -262,44 +265,88 @@ export default function GroupBracketEditor() {
         <div className="fixed inset-0 bg-black/40 flex items-center justify-center z-50">
           <form className="bg-white rounded-2xl shadow-2xl p-8 w-full max-w-xs flex flex-col gap-3 animate-pop-in" onSubmit={e => { e.preventDefault(); handleSaveMatch(); }}>
             <h2 className="font-semibold text-lg mb-2">Редактировать матч</h2>
-            <label>Игрок 1
-              <select
-                className="border rounded px-2 py-1 w-full"
-                value={editingMatch.player1?._id || ''}
-                onChange={e => {
-                  const selected = players.find((p: any) => p._id === e.target.value);
-                  setEditingMatch((em: any) => {
-                    // Если выбранный игрок совпадает с player2, сбрасываем player2
-                    if (em.player2 && em.player2._id === selected?._id) {
-                      return { ...em, player1: selected, player2: null };
-                    }
-                    return { ...em, player1: selected };
-                  });
-                }}
-              >
-                <option value="">—</option>
-                {players.map((p: any) => <option key={p._id} value={p._id}>{p.fullName}</option>)}
-              </select>
-            </label>
-            <label>Игрок 2
-              <select
-                className="border rounded px-2 py-1 w-full"
-                value={editingMatch.player2?._id || ''}
-                onChange={e => {
-                  const selected = players.find((p: any) => p._id === e.target.value);
-                  setEditingMatch((em: any) => {
-                    // Если выбранный игрок совпадает с player1, сбрасываем player1
-                    if (em.player1 && em.player1._id === selected?._id) {
-                      return { ...em, player2: selected, player1: null };
-                    }
-                    return { ...em, player2: selected };
-                  });
-                }}
-              >
-                <option value="">—</option>
-                {players.map((p: any) => <option key={p._id} value={p._id}>{p.fullName}</option>)}
-              </select>
-            </label>
+            {group?.format === 'doubles' ? (
+              <>
+                <label>Команда 1
+                  <select
+                    className="border rounded px-2 py-1 w-full"
+                    value={editingMatch.player1?._id || ''}
+                    onChange={e => {
+                      const pair = pairs.find((p: any) => String(p.a._id) === e.target.value);
+                      setEditingMatch((em: any) => {
+                        // Если выбранная пара совпадает с командой 2 — сбрасываем её.
+                        if (em.player2 && em.player2._id === pair?.a?._id) {
+                          return { ...em, player1: pair?.a || null, player3: pair?.b || null, player2: null, player4: null };
+                        }
+                        return { ...em, player1: pair?.a || null, player3: pair?.b || null };
+                      });
+                    }}
+                  >
+                    <option value="">—</option>
+                    {pairs.map((p: any) => <option key={p.a._id} value={p.a._id}>{p.a.fullName} / {p.b.fullName}</option>)}
+                  </select>
+                </label>
+                <label>Команда 2
+                  <select
+                    className="border rounded px-2 py-1 w-full"
+                    value={editingMatch.player2?._id || ''}
+                    onChange={e => {
+                      const pair = pairs.find((p: any) => String(p.a._id) === e.target.value);
+                      setEditingMatch((em: any) => {
+                        if (em.player1 && em.player1._id === pair?.a?._id) {
+                          return { ...em, player2: pair?.a || null, player4: pair?.b || null, player1: null, player3: null };
+                        }
+                        return { ...em, player2: pair?.a || null, player4: pair?.b || null };
+                      });
+                    }}
+                  >
+                    <option value="">—</option>
+                    {pairs.map((p: any) => <option key={p.a._id} value={p.a._id}>{p.a.fullName} / {p.b.fullName}</option>)}
+                  </select>
+                </label>
+              </>
+            ) : (
+              <>
+                <label>Игрок 1
+                  <select
+                    className="border rounded px-2 py-1 w-full"
+                    value={editingMatch.player1?._id || ''}
+                    onChange={e => {
+                      const selected = players.find((p: any) => p._id === e.target.value);
+                      setEditingMatch((em: any) => {
+                        // Если выбранный игрок совпадает с player2, сбрасываем player2
+                        if (em.player2 && em.player2._id === selected?._id) {
+                          return { ...em, player1: selected, player2: null };
+                        }
+                        return { ...em, player1: selected };
+                      });
+                    }}
+                  >
+                    <option value="">—</option>
+                    {players.map((p: any) => <option key={p._id} value={p._id}>{p.fullName}</option>)}
+                  </select>
+                </label>
+                <label>Игрок 2
+                  <select
+                    className="border rounded px-2 py-1 w-full"
+                    value={editingMatch.player2?._id || ''}
+                    onChange={e => {
+                      const selected = players.find((p: any) => p._id === e.target.value);
+                      setEditingMatch((em: any) => {
+                        // Если выбранный игрок совпадает с player1, сбрасываем player1
+                        if (em.player1 && em.player1._id === selected?._id) {
+                          return { ...em, player2: selected, player1: null };
+                        }
+                        return { ...em, player2: selected };
+                      });
+                    }}
+                  >
+                    <option value="">—</option>
+                    {players.map((p: any) => <option key={p._id} value={p._id}>{p.fullName}</option>)}
+                  </select>
+                </label>
+              </>
+            )}
             <label>Дата
               <input type="datetime-local" className="border rounded px-2 py-1 w-full" value={editingMatch.scheduledAt ? new Date(editingMatch.scheduledAt).toISOString().slice(0,16) : ''} onChange={e => setEditingMatch((em: any) => ({ ...em, scheduledAt: e.target.value }))} />
             </label>
@@ -322,7 +369,11 @@ export default function GroupBracketEditor() {
                 <option value="">—</option>
                 {[editingMatch.player1, editingMatch.player2]
                   .filter(Boolean)
-                  .map((p: any) => <option key={p._id} value={p._id}>{p.fullName}</option>)}
+                  .map((p: any) => {
+                    const partner = p._id === editingMatch.player1?._id ? editingMatch.player3 : editingMatch.player4;
+                    const label = partner ? `${p.fullName} / ${partner.fullName}` : p.fullName;
+                    return <option key={p._id} value={p._id}>{label}</option>;
+                  })}
               </select>
             </label>
             <div className="flex gap-2 mt-2">
