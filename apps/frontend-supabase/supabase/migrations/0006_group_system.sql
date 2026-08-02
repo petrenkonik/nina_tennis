@@ -272,7 +272,11 @@ comment on function public.generate_group_matches is
 -- ----------------------------------------------------------------------------
 -- 4) update_group_full — новый параметр p_system для смены системы группы.
 --    NULL означает «не менять» (как и у других параметров-массивов).
+--    Сначала явно удаляем старую 7-параметровую сигнатуру (из миграции 0004):
+--    CREATE OR REPLACE не меняет список аргументов существующей функции, а лишь
+--    добавил бы вторую перегрузку, делая комментарий неоднозначным (42725).
 -- ----------------------------------------------------------------------------
+drop function if exists public.update_group_full(bigint, text, bigint, bigint[], jsonb, jsonb, jsonb);
 create or replace function public.update_group_full(
   p_id bigint,
   p_name text default null,
@@ -344,5 +348,7 @@ begin
 end;
 $$;
 
-comment on function public.update_group_full is
+comment on function public.update_group_full(
+  bigint, text, bigint, text, bigint[], jsonb, jsonb, jsonb
+) is
   'Атомарное обновление группы (имя, турнир, система проведения) и её состава/посева/пар. Только админ.';
