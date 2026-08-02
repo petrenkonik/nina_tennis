@@ -591,6 +591,16 @@ export async function generateMatches(groupId: string): Promise<any[]> {
   return getGroupMatches(groupId);
 }
 
+/**
+ * Перенос победителей (и BYE-сторон) завершённых матчей раунда N в слоты раунда
+ * N+1 (только для elimination). Идемпотентно — повторный вызов пересчитывает из
+ * текущих победителей. Матч за 3-е место не трогается.
+ */
+export async function advanceWinners(groupId: string): Promise<void> {
+  const { error } = await sb.rpc('advance_winners', { p_group_id: Number(groupId) });
+  if (error) throw new Error('Ошибка заполнения победителей');
+}
+
 // ----------------------------------------------------------------------------
 // Турнирная сетка (read + reshape для UI)
 //   rounds    — основное бинарное дерево сетки (матчи match_kind='normal').

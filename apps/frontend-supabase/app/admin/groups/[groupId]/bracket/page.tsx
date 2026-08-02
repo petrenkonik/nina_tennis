@@ -1,6 +1,6 @@
 "use client";
 import React, { useEffect, useState } from 'react';
-import { getGroupById, getTournamentById, getGroupMatches, addMatch, updateMatch, deleteMatch, generateMatches, getGroupStandings } from 'app/lib/client';
+import { getGroupById, getTournamentById, getGroupMatches, addMatch, updateMatch, deleteMatch, generateMatches, advanceWinners, getGroupStandings } from 'app/lib/client';
 import AdminMenu from 'components/AdminMenu';
 import { useParams } from 'next/navigation';
 import GroupHeader from './GroupHeader';
@@ -87,6 +87,20 @@ export default function GroupBracketEditor() {
       await refreshMatches();
     } catch (e: any) {
       setError(e.message || 'Ошибка генерации');
+    } finally {
+      setSaving(false);
+    }
+  }
+
+  // Перенос победителей завершённых матчей в слоты следующего раунда (elimination).
+  // Идемпотентно: повторный клик переcчитывает из текущих победителей.
+  async function handleAdvance() {
+    setSaving(true); setError('');
+    try {
+      await advanceWinners(groupId);
+      await refreshMatches();
+    } catch (e: any) {
+      setError(e.message || 'Ошибка заполнения победителями');
     } finally {
       setSaving(false);
     }
@@ -194,6 +208,15 @@ export default function GroupBracketEditor() {
         <button className="px-4 py-2 bg-blue-600 text-white rounded" onClick={handleGenerate}>
           {group?.system === 'round_robin' ? 'Сгенерировать матчи (круговая)' : 'Сгенерировать сетку'}
         </button>
+        {group?.system !== 'round_robin' && (
+          <button
+            className="px-4 py-2 bg-indigo-600 text-white rounded"
+            onClick={handleAdvance}
+            title="Перенести победителей завершённых матчей в следующий раунд"
+          >
+            ↪ Заполнить победителями
+          </button>
+        )}
         <button className="px-4 py-2 bg-green-600 text-white rounded" onClick={handleAddMatch}>
           + Добавить матч
         </button>
