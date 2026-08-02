@@ -130,7 +130,11 @@ export default function PairsEditor({ groupId }: { groupId: string }) {
     setSaving(true);
     setError("");
     try {
-      await updateGroup(groupId, { ...group, pairSeeds: newSeeds });
+      // Меняем ТОЛЬКО посев пар: не передаём pairs, иначе updateGroup сериализует
+      // group.pairs (объекты {a,b}) через p.aId → undefined → NaN, и RPC очистит
+      // все пары (фильтр a_id is not null их отбросит).
+      const { pairs: _omit, ...rest } = group;
+      await updateGroup(groupId, { ...rest, pairSeeds: newSeeds });
       setSaved(true);
       await fetchData();
     } catch (e: any) {
