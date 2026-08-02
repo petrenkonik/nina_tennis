@@ -25,7 +25,17 @@ export default function PlayersPage() {
   useEffect(() => {
     Promise.all([getPlayers(), getClubs()]).then(([p, c]) => {
       setPlayers(p);
-      setClubs(c);
+      // Объединяем клубы из таблицы clubs и уникальные значения players.club:
+      // игрокам клуб задаётся свободным текстом, поэтому список подсказок
+      // (datalist) должен включать и реально используемые названия.
+      const used = new Map<string, string>();
+      for (const club of c) used.set(club.name, club.name);
+      for (const pl of p) {
+        const name = (pl.club || '').trim();
+        if (name) used.set(name, name);
+      }
+      const all = [...used.values()].sort((a, b) => a.localeCompare(b, 'ru'));
+      setClubs(all.map((name) => ({ name })));
       setLoading(false);
     });
   }, []);
