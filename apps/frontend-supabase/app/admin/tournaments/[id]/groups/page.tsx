@@ -31,6 +31,7 @@ export default function GroupsEditorPage() {
   const [form, setForm] = useState<{ name: string; system: GroupSystem }>({ name: '', system: 'elimination' });
   const [tournaments, setTournaments] = useState<any[]>([]);
   const [tournamentDefaultSystem, setTournamentDefaultSystem] = useState<GroupSystem>('elimination');
+  const [tournamentFormat, setTournamentFormat] = useState<'singles' | 'doubles'>('singles');
   const router = useRouter();
   const [editGroupId, setEditGroupId] = useState<string | null>(null);
   const [editForm, setEditForm] = useState<{ name: string; system: GroupSystem }>({ name: '', system: 'elimination' });
@@ -56,6 +57,7 @@ export default function GroupsEditorPage() {
       setTournamentDefaultSystem(
         (tournament as any).system === 'round_robin' ? 'round_robin' : 'elimination',
       );
+      setTournamentFormat((tournament as any).format === 'doubles' ? 'doubles' : 'singles');
       setGroups(
         (tournament.groups || []).map((g: any) => ({
           _id: String(g._id),
@@ -160,7 +162,7 @@ export default function GroupsEditorPage() {
                 <div className="min-w-0">
                   <div className="font-semibold text-content truncate">{g.name}</div>
                   <div className="text-xs text-content-muted flex items-center gap-2 mt-0.5 flex-wrap">
-                    <span className="inline-flex items-center gap-1"><FaUsers /> {g.playersCount} уч.</span>
+                    <span className="inline-flex items-center gap-1"><FaUsers /> {g.playersCount} {tournamentFormat === 'doubles' ? 'пар' : 'уч.'}</span>
                     <span className="inline-flex items-center gap-1">
                       <span className="inline-block w-2 h-2 rounded-full bg-brand-500" />
                       {SYSTEM_LABEL[g.system]}

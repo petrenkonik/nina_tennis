@@ -192,11 +192,16 @@ export async function getTournamentById(id: string) {
   if (error || !t) throw new Error('Ошибка загрузки турнира');
 
   const { data: groups } = await sb.from('groups').select('id, name, system').eq('tournament_id', id);
+  const format: 'singles' | 'doubles' = t.format === 'doubles' ? 'doubles' : 'singles';
 
   const groupIds = (groups || []).map((g) => Number(g.id));
   const playersByGroup = new Map<string, number>();
   if (groupIds.length) {
-    const { data: gp } = await sb.from('group_players').select('group_id').in('group_id', groupIds);
+    // singles — число строк group_players (по игроку на группу);
+    // doubles — число строк group_pairs (по паре на группу).
+    const { data: gp } = format === 'doubles'
+      ? await sb.from('group_pairs').select('group_id').in('group_id', groupIds)
+      : await sb.from('group_players').select('group_id').in('group_id', groupIds);
     for (const r of gp || []) {
       playersByGroup.set(String(r.group_id), (playersByGroup.get(String(r.group_id)) || 0) + 1);
     }
@@ -208,7 +213,7 @@ export async function getTournamentById(id: string) {
     startDate: t.start_date,
     endDate: t.end_date,
     clubId: t.club_id != null ? String(t.club_id) : undefined,
-    format: (t.format as 'singles' | 'doubles') || 'singles',
+    format,
     system: (t.system as 'elimination' | 'round_robin') || 'elimination',
     groups: (groups || []).map((g) => ({
       _id: String(g.id),
