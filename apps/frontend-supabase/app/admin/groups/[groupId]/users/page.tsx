@@ -147,17 +147,21 @@ export default function GroupUsersEditorPage() {
   async function handleRemovePlayer(playerId: string) {
     if (!confirm('Удалить игрока из группы?')) return;
     setSaving(true);
+    setError('');
     try {
+      // players фильтруем по строковому id; ensure-string для надёжности.
       const updatedPlayers = (group.players || []).filter((p: any) =>
-        (typeof p === 'string' ? p : p._id) !== playerId,
+        String(typeof p === 'string' ? p : p._id) !== String(playerId),
       );
       const updatedSeeds = removeAndRenumber(seeds, playerId);
       await updateGroup(
         groupId,
         { ...group, players: updatedPlayers, seededPlayers: updatedSeeds },
       );
+      setSaved(true);
       await fetchData();
     } catch (e: any) {
+      console.error('handleRemovePlayer error:', e);
       setError(e.message || 'Ошибка удаления');
     } finally {
       setSaving(false);
