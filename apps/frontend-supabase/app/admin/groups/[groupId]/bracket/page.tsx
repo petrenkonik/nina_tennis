@@ -1,6 +1,6 @@
 "use client";
 import React, { useEffect, useState } from 'react';
-import { getGroupById, getTournamentById, getGroupMatches, addMatch, updateMatch, deleteMatch, generateMatches } from 'app/lib/client';
+import { getGroupById, getTournamentById, getGroupMatches, addMatch, updateMatch, deleteMatch, generateMatches, getGroupStandings } from 'app/lib/client';
 import AdminMenu from 'components/AdminMenu';
 import { useParams } from 'next/navigation';
 import GroupHeader from './GroupHeader';
@@ -35,6 +35,7 @@ export default function GroupBracketEditor() {
   const [roundFilter, setRoundFilter] = useState<number | ''>('');
   const [statusFilter, setStatusFilter] = useState('');
   const [tournament, setTournament] = useState<any>(null);
+  const [standings, setStandings] = useState<any[]>([]);
 
   useEffect(() => {
     getGroupById(groupId).then(g => {
@@ -46,11 +47,20 @@ export default function GroupBracketEditor() {
       }
     });
     getGroupMatches(groupId).then(setMatches);
+    // Для круговой — подгрузить турнирную таблицу.
+    getGroupById(groupId).then(g => {
+      if (g?.system === 'round_robin') {
+        getGroupStandings(groupId).then(setStandings).catch(() => setStandings([]));
+      }
+    });
   }, [groupId]);
 
   async function refreshMatches() {
     const fresh = await getGroupMatches(groupId);
     setMatches(fresh);
+    if (group?.system === 'round_robin') {
+      getGroupStandings(groupId).then(setStandings).catch(() => setStandings([]));
+    }
   }
 
   async function handleGenerate() {
@@ -162,17 +172,55 @@ export default function GroupBracketEditor() {
         </div>
         <div className="flex gap-2 mb-4 flex-wrap">
         <button className="px-4 py-2 bg-blue-600 text-white rounded" onClick={handleGenerate}>
-          Сгенерировать раунды
+          {group?.system === 'round_robin' ? 'Сгенерировать матчи (круговая)' : 'Сгенерировать сетку'}
         </button>
         <button className="px-4 py-2 bg-green-600 text-white rounded" onClick={handleAddMatch}>
           + Добавить матч
         </button>
       </div>
+      {group?.system === 'round_robin' && standings.length > 0 && (
+        <div className="mb-6 bg-white rounded shadow p-4 overflow-x-auto">
+          <h2 className="font-bold mb-3">Турнирная таблица</h2>
+          <table className="w-full text-sm">
+            <thead>
+              <tr className="text-left text-gray-500 border-b">
+                <th className="py-1 pr-2">#</th>
+                <th className="py-1 pr-2">Игрок</th>
+                <th className="py-1 pr-2 text-center">И</th>
+                <th className="py-1 pr-2 text-center">В</th>
+                <th className="py-1 pr-2 text-center">П</th>
+                <th className="py-1 pr-2 text-center">Сеты</th>
+                <th className="py-1 pr-2 text-center">Геймы</th>
+                <th className="py-1 text-center">Очки</th>
+              </tr>
+            </thead>
+            <tbody>
+              {standings.map((s: any) => (
+                <tr key={s.unitId} className="border-b last:border-0">
+                  <td className="py-1 pr-2 font-bold">{s.position}</td>
+                  <td className="py-1 pr-2">
+                    {s.player?.fullName}
+                    {s.partner && <span className="text-gray-500"> / {s.partner.fullName}</span>}
+                  </td>
+                  <td className="py-1 pr-2 text-center">{s.matchesPlayed}</td>
+                  <td className="py-1 pr-2 text-center">{s.wins}</td>
+                  <td className="py-1 pr-2 text-center">{s.losses}</td>
+                  <td className="py-1 pr-2 text-center">{s.setsWon}:{s.setsLost}</td>
+                  <td className="py-1 pr-2 text-center">{s.gamesWon}:{s.gamesLost}</td>
+                  <td className="py-1 text-center font-bold">{s.points}</td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        </div>
+      )}
       <div className="space-y-4">
         {filteredMatches.map(m => (
           <div key={m._id} className="bg-white rounded shadow p-4 flex flex-col gap-2">
             <div className="flex gap-2 items-center">
-              <span className="font-bold">Раунд {m.round}</span>
+              <span className="font-bold">
+                {m.matchKind === 'third_place' ? 'Матч за 3-е место' : `Раунд ${m.round}`}
+              </span>
               <span className="text-xs text-gray-500">Статус: {STATUS_LABELS[m.status] || m.status}</span>
               {m.player1 && m.player2 && (
                 <Link

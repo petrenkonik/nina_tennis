@@ -42,6 +42,8 @@ export interface Match {
   refereeId?: string | { _id: string; email?: string; firstName?: string; lastName?: string } | null;
   /** История всех, кто судил матч (id пользователей, populate → объекты). */
   judgedBy?: Array<string | { _id: string; email?: string; firstName?: string; lastName?: string }>;
+  /** Тип матча: normal — обычный, third_place — матч за 3-е место в сетке. */
+  matchKind?: 'normal' | 'third_place';
 }
 
 export interface Tournament {
@@ -52,6 +54,8 @@ export interface Tournament {
   clubId?: string;
   /** Формат турнира: одиночный (по умолчанию) или парный. */
   format?: 'singles' | 'doubles';
+  /** Система проведения: на вылет (по умолчанию) или круговая. */
+  system?: 'elimination' | 'round_robin';
   groups: Group[];
 }
 
@@ -63,6 +67,8 @@ export interface BracketNode {
 
 export interface StandingsEntry {
   player: Player;
+  /** Партнёр (только парные турниры; иначе undefined). */
+  partner?: Player | null;
   matchesPlayed: number;
   wins: number;
   losses: number;

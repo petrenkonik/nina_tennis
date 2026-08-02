@@ -136,7 +136,7 @@ export async function deleteClub(id: string) {
 export async function getTournaments() {
   const { data: tournaments, error } = await sb
     .from('tournaments')
-    .select('id, name, start_date, end_date, club_id, format')
+    .select('id, name, start_date, end_date, club_id, format, system')
     .order('start_date', { ascending: false });
   if (error) throw new Error('Ошибка загрузки турниров');
 
@@ -175,6 +175,7 @@ export async function getTournaments() {
       endDate: t.end_date,
       clubId: t.club_id != null ? String(t.club_id) : undefined,
       format: (t.format as 'singles' | 'doubles') || 'singles',
+      system: (t.system as 'elimination' | 'round_robin') || 'elimination',
       groups: [],
       groupsCount: gids.length,
       playersCount: uniquePlayers.size,
@@ -185,7 +186,7 @@ export async function getTournaments() {
 export async function getTournamentById(id: string) {
   const { data: t, error } = await sb
     .from('tournaments')
-    .select('id, name, start_date, end_date, club_id, format')
+    .select('id, name, start_date, end_date, club_id, format, system')
     .eq('id', id)
     .maybeSingle();
   if (error || !t) throw new Error('Ошибка загрузки турнира');
@@ -208,6 +209,7 @@ export async function getTournamentById(id: string) {
     endDate: t.end_date,
     clubId: t.club_id != null ? String(t.club_id) : undefined,
     format: (t.format as 'singles' | 'doubles') || 'singles',
+    system: (t.system as 'elimination' | 'round_robin') || 'elimination',
     groups: (groups || []).map((g) => ({
       _id: String(g.id),
       name: g.name,
@@ -248,8 +250,9 @@ export async function createTournament(data: any) {
       end_date: data.endDate,
       club_id: data.clubId ? Number(data.clubId) : null,
       format: data.format === 'doubles' ? 'doubles' : 'singles',
+      system: data.system === 'round_robin' ? 'round_robin' : 'elimination',
     })
-    .select('id, name, start_date, end_date, club_id, format')
+    .select('id, name, start_date, end_date, club_id, format, system')
     .single();
   if (error || !row) throw new Error('Ошибка создания турнира');
   return {
@@ -259,6 +262,7 @@ export async function createTournament(data: any) {
     endDate: row.end_date,
     clubId: row.club_id != null ? String(row.club_id) : undefined,
     format: (row.format as 'singles' | 'doubles') || 'singles',
+    system: (row.system as 'elimination' | 'round_robin') || 'elimination',
     groups: [],
   };
 }
@@ -272,9 +276,10 @@ export async function updateTournament(id: string, data: any) {
       end_date: data.endDate,
       club_id: data.clubId != null ? Number(data.clubId) : null,
       format: data.format === 'doubles' ? 'doubles' : 'singles',
+      system: data.system === 'round_robin' ? 'round_robin' : 'elimination',
     })
     .eq('id', id)
-    .select('id, name, start_date, end_date, club_id, format')
+    .select('id, name, start_date, end_date, club_id, format, system')
     .single();
   if (error || !row) throw new Error('Ошибка обновления турнира');
   return {
@@ -284,6 +289,7 @@ export async function updateTournament(id: string, data: any) {
     endDate: row.end_date,
     clubId: row.club_id != null ? String(row.club_id) : undefined,
     format: (row.format as 'singles' | 'doubles') || 'singles',
+    system: (row.system as 'elimination' | 'round_robin') || 'elimination',
     groups: [],
   };
 }
@@ -303,17 +309,30 @@ export interface GroupUI {
   tournamentId?: string | null;
   tournament_id?: string | null;
   format?: 'singles' | 'doubles';
+  system?: 'elimination' | 'round_robin';
   players: any[];
   matches: any[];
   seededPlayers?: { playerId: string; seed: number }[];
   pairs?: { a: any; b: any; seed?: number }[];
 }
 
-async function getGroupFormat(groupId: string): Promise<'singles' | 'doubles' | null> {
+/** Метаданные турнира группы (формат + система проведения) одним запросом. */
+async function getGroupMeta(
+  groupId: string,
+): Promise<{ format: 'singles' | 'doubles'; system: 'elimination' | 'round_robin' } | null> {
   const { data: g } = await sb.from('groups').select('tournament_id').eq('id', groupId).maybeSingle();
   if (!g?.tournament_id) return null;
-  const { data: t } = await sb.from('tournaments').select('format').eq('id', g.tournament_id).maybeSingle();
-  return t?.format === 'doubles' ? 'doubles' : 'singles';
+  const { data: t } = await sb.from('tournaments').select('format, system').eq('id', g.tournament_id).maybeSingle();
+  return {
+    format: t?.format === 'doubles' ? 'doubles' : 'singles',
+    system: t?.system === 'round_robin' ? 'round_robin' : 'elimination',
+  };
+}
+
+/** Обратная совместимость: только формат. */
+async function getGroupFormat(groupId: string): Promise<'singles' | 'doubles' | null> {
+  const meta = await getGroupMeta(groupId);
+  return meta ? meta.format : null;
 }
 
 export async function getGroups(): Promise<GroupUI[]> {
@@ -333,7 +352,9 @@ export async function getGroupById(id: string): Promise<GroupUI | null> {
   const { data: g, error } = await sb.from('groups').select('id, name, tournament_id').eq('id', id).maybeSingle();
   if (error || !g) throw new Error('Ошибка загрузки группы');
 
-  const format = await getGroupFormat(id);
+  const meta = await getGroupMeta(id);
+  const format = meta?.format ?? 'singles';
+  const system = meta?.system ?? 'elimination';
 
   if (format === 'doubles') {
     const pairs = await getGroupPairs(id);
@@ -343,6 +364,7 @@ export async function getGroupById(id: string): Promise<GroupUI | null> {
       tournamentId: g.tournament_id ? String(g.tournament_id) : null,
       tournament_id: g.tournament_id ? String(g.tournament_id) : null,
       format,
+      system,
       players: [],
       pairs,
       matches: [],
@@ -369,6 +391,7 @@ export async function getGroupById(id: string): Promise<GroupUI | null> {
     tournamentId: g.tournament_id ? String(g.tournament_id) : null,
     tournament_id: g.tournament_id ? String(g.tournament_id) : null,
     format,
+    system,
     players,
     matches: [],
     seededPlayers,
@@ -539,15 +562,30 @@ export async function generateMatches(groupId: string): Promise<any[]> {
 
 // ----------------------------------------------------------------------------
 // Турнирная сетка (read + reshape для UI)
+//   rounds    — основное бинарное дерево сетки (матчи match_kind='normal').
+//   thirdPlace — отдельный матч за 3-е место (match_kind='third_place'), если есть;
+//                рисуется BracketView вне дерева, т.к. он питается проигравшими,
+//                а не победителями полуфиналов.
 // ----------------------------------------------------------------------------
-export async function getGroupBracket(groupId: string): Promise<{ rounds: any[] }> {
-  const { data: groupRow } = await sb.from('groups').select('id, tournament_id').eq('id', groupId).maybeSingle();
-  const tournamentId = groupRow?.tournament_id;
-  let isDoubles = false;
-  if (tournamentId) {
-    const { data: t } = await sb.from('tournaments').select('format').eq('id', tournamentId).maybeSingle();
-    isDoubles = t?.format === 'doubles';
-  }
+export interface BracketResult {
+  rounds: any[];
+  thirdPlace?: any;
+}
+
+/** Человекочитаемое название раунда сетки (Финал / Полуфиналы / 1/4 …). */
+function roundTitle(round: number, totalRounds: number): string {
+  const fromFinal = totalRounds - round; // 0 — финал, 1 — полуфиналы, …
+  const matchesInRound = 2 ** fromFinal;
+  if (matchesInRound === 1) return 'Финал';
+  if (matchesInRound === 2) return 'Полуфиналы';
+  if (matchesInRound === 4) return '1/4 финала';
+  if (matchesInRound === 8) return '1/8 финала';
+  return `Раунд ${round}`;
+}
+
+export async function getGroupBracket(groupId: string): Promise<BracketResult> {
+  const meta = await getGroupMeta(groupId);
+  const isDoubles = meta?.format === 'doubles';
 
   const seedsSource = isDoubles
     ? sb.from('group_pair_seeds').select('player_a_id, seed').eq('group_id', groupId)
@@ -589,30 +627,69 @@ export async function getGroupBracket(groupId: string): Promise<{ rounds: any[] 
     return side;
   };
 
-  const maxRound = Math.max(...rows.map((m: any) => m.round || 1));
+  const toBracketMatch = (m: any) => ({
+    id: String(m.id),
+    teams: [
+      buildSide(m.player1_id, m.player1_name, m.player1_photo, m.player1_club, m.player3_id, m.player3_name, m.player3_photo, m.player3_club),
+      buildSide(m.player2_id, m.player2_name, m.player2_photo, m.player2_club, m.player4_id, m.player4_name, m.player4_photo, m.player4_club),
+    ],
+    score: m.score,
+    scheduledAt: m.scheduled_at,
+    playedAt: m.played_at,
+    winner: m.winner_id != null ? String(m.winner_id) : null,
+    court: m.court,
+    status: m.status,
+    refereeId: m.referee_id,
+    judgedBy: [],
+  });
+
+  // Матч за 3-е место — отдельной карточкой, в дерево не входит.
+  const thirdPlaceRow = rows.find((m: any) => m.match_kind === 'third_place');
+  const treeRows = rows.filter((m: any) => m.match_kind !== 'third_place');
+
+  const maxRound = treeRows.reduce((mx: number, m: any) => Math.max(mx, m.round || 1), 0);
   const rounds: any[] = [];
   for (let r = 1; r <= maxRound; r++) {
-    const roundMatches = rows.filter((m: any) => (m.round || 1) === r);
+    const roundMatches = treeRows.filter((m: any) => (m.round || 1) === r);
+    if (!roundMatches.length) continue;
     rounds.push({
-      title: `Раунд ${r}`,
-      seeds: roundMatches.map((m: any) => ({
-        id: String(m.id),
-        teams: [
-          buildSide(m.player1_id, m.player1_name, m.player1_photo, m.player1_club, m.player3_id, m.player3_name, m.player3_photo, m.player3_club),
-          buildSide(m.player2_id, m.player2_name, m.player2_photo, m.player2_club, m.player4_id, m.player4_name, m.player4_photo, m.player4_club),
-        ],
-        score: m.score,
-        scheduledAt: m.scheduled_at,
-        playedAt: m.played_at,
-        winner: m.winner_id != null ? String(m.winner_id) : null,
-        court: m.court,
-        status: m.status,
-        refereeId: m.referee_id,
-        judgedBy: [],
-      })),
+      title: roundTitle(r, maxRound),
+      seeds: roundMatches.map(toBracketMatch),
     });
   }
-  return { rounds };
+
+  const result: BracketResult = { rounds };
+  if (thirdPlaceRow) result.thirdPlace = toBracketMatch(thirdPlaceRow);
+  return result;
+}
+
+// ----------------------------------------------------------------------------
+// Турнирная таблица круговой системы
+// ----------------------------------------------------------------------------
+export async function getGroupStandings(groupId: string): Promise<any[]> {
+  const { data, error } = await sb.rpc('get_group_standings', { p_group_id: Number(groupId) });
+  if (error) throw new Error('Ошибка загрузки турнирной таблицы');
+  return (data || []).map((r: any) => ({
+    unitId: r.unit_id != null ? String(r.unit_id) : undefined,
+    player: {
+      _id: String(r.unit_id),
+      fullName: r.name || '',
+      photoUrl: r.photo_url || undefined,
+      club: r.club || undefined,
+    },
+    partner: r.partner_id != null
+      ? { _id: String(r.partner_id), fullName: r.partner_name || '' }
+      : undefined,
+    matchesPlayed: r.matches_played,
+    wins: r.wins,
+    losses: r.losses,
+    setsWon: r.sets_won,
+    setsLost: r.sets_lost,
+    gamesWon: r.games_won,
+    gamesLost: r.games_lost,
+    points: r.points,
+    position: r.position,
+  }));
 }
 
 // ----------------------------------------------------------------------------

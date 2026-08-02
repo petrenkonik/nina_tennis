@@ -4,4 +4,7 @@ export * from './models/group';
 export * from './utils';
 export * from './dto/user.dto';
 export * from './scoring';
-export * from './seeding'; 
+export * from './seeding';
+export * from './score';
+export * from './roundRobin';
+export * from './standings';

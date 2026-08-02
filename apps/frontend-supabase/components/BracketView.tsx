@@ -18,6 +18,8 @@ export interface BracketViewProps {
   compact?: boolean;
   /** Парный режим: карточки выше (партнёр под каждым игроком стороны). */
   doubles?: boolean;
+  /** Матч за 3-е место (если есть) — рисуется отдельной карточкой вне дерева. */
+  thirdPlace?: BracketMatch | null;
   className?: string;
 }
 
@@ -25,7 +27,7 @@ const MATCH_HEIGHT_SINGLES = 132; // высота карточки матча, p
 const MATCH_HEIGHT_DOUBLES = 188; // парный матч: доп. строки партнёров (+~56px)
 const MATCH_GAP = 20; // базовый зазор между матчами в первом раунде, px
 
-export default function BracketView({ rounds, matchHref, compact, doubles, className }: BracketViewProps) {
+export default function BracketView({ rounds, matchHref, compact, doubles, thirdPlace, className }: BracketViewProps) {
   const [zoom, setZoom] = useState(1);
   const MATCH_HEIGHT = doubles ? MATCH_HEIGHT_DOUBLES : MATCH_HEIGHT_SINGLES;
 
@@ -131,6 +133,31 @@ export default function BracketView({ rounds, matchHref, compact, doubles, class
               </div>
             );
           })}
+
+          {/* Матч за 3-е место — отдельной колонкой вне бинарного дерева. */}
+          {thirdPlace && (
+            <div className="flex flex-col" style={{ minWidth: compact ? 210 : 260 }}>
+              <div className="sticky top-0 z-10 mb-2">
+                <div className="inline-block px-3 py-1 rounded-md bg-orange-500 text-white text-xs font-semibold shadow-sm">
+                  За 3-е место
+                </div>
+              </div>
+              <div className="relative flex flex-col flex-1" style={{ justifyContent: 'center' }}>
+                <div
+                  className="relative flex items-center overflow-visible"
+                  style={{ minHeight: MATCH_HEIGHT, flex: '0 0 auto' }}
+                >
+                  <MatchCard
+                    match={thirdPlace}
+                    roundIndex={rounds.length}
+                    href={matchHref ? matchHref(thirdPlace.id) : undefined}
+                    compact={compact}
+                    connector="none"
+                  />
+                </div>
+              </div>
+            </div>
+          )}
         </div>
       </div>
     </div>

@@ -44,7 +44,9 @@ export default function GroupPage() {
   return (
     <MainLayout header={tournament.name+":"+group.name}>
       <div className="mb-4">
-        <Link href={`/tournaments/${tournamentId}/groups/${groupId}/bracket`} className="text-blue-600 underline">Перейти к турнирной сетке →</Link>
+        <Link href={`/tournaments/${tournamentId}/groups/${groupId}/bracket`} className="text-blue-600 underline">
+          {group?.system === 'round_robin' ? 'Перейти к турнирной таблице →' : 'Перейти к турнирной сетке →'}
+        </Link>
       </div>
       <h2 className="font-semibold mb-2">Участники</h2>
       {group.players && group.players.length > 0 ? (

@@ -26,7 +26,7 @@ function AdminTournamentsPage() {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');
   const [showForm, setShowForm] = useState(false);
-  const [form, setForm] = useState<Partial<Tournament>>({ name: '', startDate: '', endDate: '', clubId: '', format: 'singles' });
+  const [form, setForm] = useState<Partial<Tournament>>({ name: '', startDate: '', endDate: '', clubId: '', format: 'singles', system: 'elimination' });
   const [editId, setEditId] = useState<string | null>(null);
   const [tab, setTab] = useState<'all' | 'active' | 'finished'>('all');
   const [search, setSearch] = useState('');
@@ -51,12 +51,12 @@ function AdminTournamentsPage() {
   }, []);
 
   function openCreate() {
-    setForm({ name: '', startDate: '', endDate: '', clubId: '', format: 'singles' });
+    setForm({ name: '', startDate: '', endDate: '', clubId: '', format: 'singles', system: 'elimination' });
     setEditId(null);
     setShowForm(true);
   }
   function openEdit(t: Tournament) {
-    setForm({ name: t.name, startDate: t.startDate, endDate: t.endDate, clubId: t.clubId || '', format: t.format || 'singles' });
+    setForm({ name: t.name, startDate: t.startDate, endDate: t.endDate, clubId: t.clubId || '', format: t.format || 'singles', system: t.system || 'elimination' });
     setEditId(t._id);
     setShowForm(true);
   }
@@ -278,6 +278,20 @@ function AdminTournamentsPage() {
                 >
                   <option value="singles">Одиночный (1×1)</option>
                   <option value="doubles">Парный (2×2)</option>
+                </select>
+              </div>
+              {/* Система проведения: менять нельзя после создания (наследуют группы). */}
+              <div>
+                <label className="block text-xs text-content-muted mb-1">Система проведения</label>
+                <select
+                  className={inputCls}
+                  value={form.system || 'elimination'}
+                  onChange={(e) => setForm((f) => ({ ...f, system: e.target.value as 'elimination' | 'round_robin' }))}
+                  disabled={!!editId}
+                  title={editId ? 'Систему нельзя изменить у существующего турнира' : 'На вылет или круговая (каждый с каждым)'}
+                >
+                  <option value="elimination">На вылет (сетка)</option>
+                  <option value="round_robin">Круговая (каждый с каждым)</option>
                 </select>
               </div>
               <div className="flex gap-2 justify-end pt-1">

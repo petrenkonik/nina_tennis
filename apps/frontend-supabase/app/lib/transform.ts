@@ -59,6 +59,7 @@ export interface MatchFullRow {
   winner_id: string | number | null;
   court: string | null;
   round: number | null;
+  match_kind: 'normal' | 'third_place' | null;
   server_side: 'left' | 'right' | null;
   court_side_p1: 'left' | 'right' | null;
   court_side_p2: 'left' | 'right' | null;
@@ -100,6 +101,7 @@ export function toMatch(row: MatchFullRow | null | undefined): Match | null {
     playedAt: row.played_at ? new Date(row.played_at) : undefined,
     winnerId: row.winner_id != null ? String(row.winner_id) : undefined,
     round: row.round || undefined,
+    matchKind: row.match_kind === 'third_place' ? 'third_place' : 'normal',
     court: row.court || '',
     serverSide: row.server_side || null,
     courtSide:
