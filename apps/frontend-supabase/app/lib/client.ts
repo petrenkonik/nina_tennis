@@ -369,6 +369,13 @@ export async function getGroupById(id: string): Promise<GroupUI | null> {
 
   if (format === 'doubles') {
     const pairs = await getGroupPairs(id);
+    // Собираем всех игроков из пар в плоский список — нужен для выпадающих списков
+    // в редакторе матчей (bracket), где слоты player1/2/3/4 выбираются из players.
+    const byId = new Map<string, any>();
+    for (const pr of pairs) {
+      if (pr.a) byId.set(String(pr.a._id), pr.a);
+      if (pr.b) byId.set(String(pr.b._id), pr.b);
+    }
     return {
       _id: String(g.id),
       name: g.name,
@@ -376,7 +383,7 @@ export async function getGroupById(id: string): Promise<GroupUI | null> {
       tournament_id: g.tournament_id ? String(g.tournament_id) : null,
       format,
       system,
-      players: [],
+      players: [...byId.values()],
       pairs,
       matches: [],
       seededPlayers: [],
