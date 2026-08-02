@@ -51,6 +51,7 @@ export default function GroupBracketEditor() {
   const [statusFilter, setStatusFilter] = useState('');
   const [tournament, setTournament] = useState<any>(null);
   const [standings, setStandings] = useState<any[]>([]);
+  const [newMatchRound, setNewMatchRound] = useState<number>(1);
 
   useEffect(() => {
     getGroupById(groupId).then(g => {
@@ -112,7 +113,7 @@ export default function GroupBracketEditor() {
       const created = await addMatch(groupId, {
         player1: null,
         player2: null,
-        round: 1,
+        round: newMatchRound,
         status: 'scheduled',
         court: '',
         score: '',
@@ -217,6 +218,16 @@ export default function GroupBracketEditor() {
             ↪ Заполнить победителями
           </button>
         )}
+        <label className="flex items-center gap-2 text-sm">
+          Раунд:
+          <select
+            className="border rounded px-2 py-1"
+            value={newMatchRound}
+            onChange={e => setNewMatchRound(Number(e.target.value))}
+          >
+            {ROUND_OPTIONS.map(r => <option key={r} value={r}>{r}</option>)}
+          </select>
+        </label>
         <button className="px-4 py-2 bg-green-600 text-white rounded" onClick={handleAddMatch}>
           + Добавить матч
         </button>
@@ -392,6 +403,11 @@ export default function GroupBracketEditor() {
             </label>
             <label>Корт
               <input type="text" placeholder="Напр. Корт 1" className="border rounded px-2 py-1 w-full" value={editingMatch.court || ''} onChange={e => setEditingMatch((em: any) => ({ ...em, court: e.target.value }))} />
+            </label>
+            <label>Раунд
+              <select className="border rounded px-2 py-1 w-full" value={editingMatch.round ?? 1} onChange={e => setEditingMatch((em: any) => ({ ...em, round: Number(e.target.value) }))}>
+                {ROUND_OPTIONS.map(r => <option key={r} value={r}>{r}</option>)}
+              </select>
             </label>
             <label>Статус
               <select className="border rounded px-2 py-1 w-full" value={editingMatch.status} onChange={e => setEditingMatch((em: any) => ({ ...em, status: e.target.value }))}>
