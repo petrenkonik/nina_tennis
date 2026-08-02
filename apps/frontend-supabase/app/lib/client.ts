@@ -191,7 +191,7 @@ export async function getTournamentById(id: string) {
     .maybeSingle();
   if (error || !t) throw new Error('Ошибка загрузки турнира');
 
-  const { data: groups } = await sb.from('groups').select('id, name').eq('tournament_id', id);
+  const { data: groups } = await sb.from('groups').select('id, name, system').eq('tournament_id', id);
 
   const groupIds = (groups || []).map((g) => Number(g.id));
   const playersByGroup = new Map<string, number>();
@@ -213,6 +213,7 @@ export async function getTournamentById(id: string) {
     groups: (groups || []).map((g) => ({
       _id: String(g.id),
       name: g.name,
+      system: g.system === 'round_robin' ? 'round_robin' : 'elimination',
       players: [],
       matches: [],
       playersCount: playersByGroup.get(String(g.id)) || 0,
@@ -316,16 +317,21 @@ export interface GroupUI {
   pairs?: { a: any; b: any; seed?: number }[];
 }
 
-/** Метаданные турнира группы (формат + система проведения) одним запросом. */
+/** Метаданные группы: формат с турнира, система проведения — с группы. */
 async function getGroupMeta(
   groupId: string,
 ): Promise<{ format: 'singles' | 'doubles'; system: 'elimination' | 'round_robin' } | null> {
-  const { data: g } = await sb.from('groups').select('tournament_id').eq('id', groupId).maybeSingle();
-  if (!g?.tournament_id) return null;
-  const { data: t } = await sb.from('tournaments').select('format, system').eq('id', g.tournament_id).maybeSingle();
+  const { data: g } = await sb.from('groups').select('tournament_id, system').eq('id', groupId).maybeSingle();
+  if (!g) return null;
+  const tournamentId = g.tournament_id;
+  let format: 'singles' | 'doubles' = 'singles';
+  if (tournamentId) {
+    const { data: t } = await sb.from('tournaments').select('format').eq('id', tournamentId).maybeSingle();
+    if (t?.format === 'doubles') format = 'doubles';
+  }
   return {
-    format: t?.format === 'doubles' ? 'doubles' : 'singles',
-    system: t?.system === 'round_robin' ? 'round_robin' : 'elimination',
+    format,
+    system: g.system === 'round_robin' ? 'round_robin' : 'elimination',
   };
 }
 
@@ -462,10 +468,18 @@ export async function getGroupPairSeeds(groupId: string): Promise<{ playerId: st
 }
 
 export async function createGroup(data: any): Promise<GroupUI> {
+  // system может быть задан явно; иначе наследуется от турнира триггером.
+  const insert: Record<string, unknown> = {
+    name: data.name,
+    tournament_id: data.tournament_id ? Number(data.tournament_id) : null,
+  };
+  if (data.system === 'round_robin' || data.system === 'elimination') {
+    insert.system = data.system;
+  }
   const { data: row, error } = await sb
     .from('groups')
-    .insert({ name: data.name, tournament_id: data.tournament_id ? Number(data.tournament_id) : null })
-    .select('id, name, tournament_id')
+    .insert(insert)
+    .select('id, name, tournament_id, system')
     .single();
   if (error || !row) throw new Error('Ошибка создания группы');
   return {
@@ -473,6 +487,7 @@ export async function createGroup(data: any): Promise<GroupUI> {
     name: row.name,
     tournamentId: row.tournament_id ? String(row.tournament_id) : null,
     tournament_id: row.tournament_id ? String(row.tournament_id) : null,
+    system: row.system === 'round_robin' ? 'round_robin' : 'elimination',
     players: [],
     matches: [],
   };
@@ -501,6 +516,7 @@ export async function updateGroup(id: string, data: any): Promise<{ _id: string;
     p_id: Number(id),
     p_name: data.name ?? null,
     p_tournament_id: data.tournament_id != null ? (data.tournament_id ? Number(data.tournament_id) : null) : null,
+    p_system: data.system === 'round_robin' || data.system === 'elimination' ? data.system : null,
     p_players: players,
     p_seeds: seeds,
     p_pairs: pairs,

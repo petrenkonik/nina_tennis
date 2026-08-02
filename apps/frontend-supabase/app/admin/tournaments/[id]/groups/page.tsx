@@ -11,7 +11,15 @@ interface GroupRow {
   _id: string;
   name: string;
   playersCount: number;
+  system: 'elimination' | 'round_robin';
 }
+
+type GroupSystem = 'elimination' | 'round_robin';
+
+const SYSTEM_LABEL: Record<GroupSystem, string> = {
+  elimination: 'На вылет',
+  round_robin: 'Круговая',
+};
 
 export default function GroupsEditorPage() {
   const { id: rawId } = useParams();
@@ -20,11 +28,12 @@ export default function GroupsEditorPage() {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');
   const [showForm, setShowForm] = useState(false);
-  const [form, setForm] = useState({ name: '' });
+  const [form, setForm] = useState<{ name: string; system: GroupSystem }>({ name: '', system: 'elimination' });
   const [tournaments, setTournaments] = useState<any[]>([]);
+  const [tournamentDefaultSystem, setTournamentDefaultSystem] = useState<GroupSystem>('elimination');
   const router = useRouter();
   const [editGroupId, setEditGroupId] = useState<string | null>(null);
-  const [editForm, setEditForm] = useState({ name: '' });
+  const [editForm, setEditForm] = useState<{ name: string; system: GroupSystem }>({ name: '', system: 'elimination' });
 
   useEffect(() => {
     // Получаем турниры для комбобокса
@@ -44,11 +53,15 @@ export default function GroupsEditorPage() {
     setLoading(true);
     try {
       const tournament = await getTournamentById(id);
+      setTournamentDefaultSystem(
+        (tournament as any).system === 'round_robin' ? 'round_robin' : 'elimination',
+      );
       setGroups(
         (tournament.groups || []).map((g: any) => ({
           _id: String(g._id),
           name: g.name,
           playersCount: typeof g.playersCount === 'number' ? g.playersCount : (g.players?.length || 0),
+          system: g.system === 'round_robin' ? 'round_robin' : 'elimination',
         })),
       );
       setError('');
@@ -64,15 +77,17 @@ export default function GroupsEditorPage() {
     e.preventDefault();
     await createGroup({ ...form, tournamentId: id });
     setShowForm(false);
+    setForm({ name: '', system: tournamentDefaultSystem });
     fetchGroups();
   }
 
   async function handleEditSubmit(e: React.FormEvent) {
     e.preventDefault();
     if (!editGroupId) return;
-    await updateGroup(editGroupId, editForm);
+    // update_group_full требует tournament_id всегда; берём текущий турнир страницы.
+    await updateGroup(editGroupId, { ...editForm, tournament_id: id });
     setEditGroupId(null);
-    setEditForm({ name: '' });
+    setEditForm({ name: '', system: 'elimination' });
     fetchGroups();
   }
 
@@ -101,7 +116,7 @@ export default function GroupsEditorPage() {
           ))}
         </select>
       </div>
-      <Button onClick={() => setShowForm(true)} className="mb-4">
+      <Button onClick={() => { setForm({ name: '', system: tournamentDefaultSystem }); setShowForm(true); }} className="mb-4">
         <FaPlus /> Добавить группу
       </Button>
       {loading && <div className="text-content-muted">Загрузка...</div>}
@@ -110,27 +125,46 @@ export default function GroupsEditorPage() {
         {groups.map(g => (
           <Card key={g._id} className="p-4">
             {editGroupId === g._id ? (
-              <form onSubmit={handleEditSubmit} className="flex gap-2 w-full">
-                <input
-                  className={inputCls}
-                  value={editForm.name}
-                  onChange={e => setEditForm(f => ({ ...f, name: e.target.value }))}
-                  required
-                  autoFocus
-                />
-                <Button type="submit" variant="success" size="sm">
-                  <FaCheck />
-                </Button>
-                <Button type="button" variant="outline" size="sm" onClick={() => setEditGroupId(null)}>
-                  <FaTimes />
-                </Button>
+              <form onSubmit={handleEditSubmit} className="flex flex-col gap-2 w-full">
+                <div className="flex gap-2">
+                  <input
+                    className={inputCls}
+                    value={editForm.name}
+                    onChange={e => setEditForm(f => ({ ...f, name: e.target.value }))}
+                    required
+                    autoFocus
+                  />
+                </div>
+                <div className="flex items-center gap-2">
+                  <label className="text-xs text-content-muted whitespace-nowrap">Система:</label>
+                  <select
+                    className={inputCls}
+                    value={editForm.system}
+                    onChange={e => setEditForm(f => ({ ...f, system: e.target.value as GroupSystem }))}
+                  >
+                    <option value="elimination">На вылет</option>
+                    <option value="round_robin">Круговая</option>
+                  </select>
+                </div>
+                <div className="flex gap-2 justify-end">
+                  <Button type="button" variant="outline" size="sm" onClick={() => setEditGroupId(null)}>
+                    <FaTimes /> Отмена
+                  </Button>
+                  <Button type="submit" variant="success" size="sm">
+                    <FaCheck /> Сохранить
+                  </Button>
+                </div>
               </form>
             ) : (
               <div className="flex items-center justify-between gap-2 flex-wrap">
                 <div className="min-w-0">
                   <div className="font-semibold text-content truncate">{g.name}</div>
-                  <div className="text-xs text-content-muted flex items-center gap-1 mt-0.5">
-                    <FaUsers /> {g.playersCount} уч.
+                  <div className="text-xs text-content-muted flex items-center gap-2 mt-0.5 flex-wrap">
+                    <span className="inline-flex items-center gap-1"><FaUsers /> {g.playersCount} уч.</span>
+                    <span className="inline-flex items-center gap-1">
+                      <span className="inline-block w-2 h-2 rounded-full bg-brand-500" />
+                      {SYSTEM_LABEL[g.system]}
+                    </span>
                   </div>
                 </div>
                 <div className="flex gap-2 items-center">
@@ -143,8 +177,8 @@ export default function GroupsEditorPage() {
                   <Button
                     variant="outline"
                     size="sm"
-                    onClick={() => { setEditGroupId(g._id); setEditForm({ name: g.name }); }}
-                    title="Переименовать группу"
+                    onClick={() => { setEditGroupId(g._id); setEditForm({ name: g.name, system: g.system }); }}
+                    title="Изменить группу"
                   >
                     <FaEdit />
                   </Button>
@@ -182,6 +216,17 @@ export default function GroupsEditorPage() {
               required
               autoFocus
             />
+            <div>
+              <label className="block text-xs text-content-muted mb-1">Система проведения</label>
+              <select
+                className={inputCls}
+                value={form.system}
+                onChange={e => setForm(f => ({ ...f, system: e.target.value as GroupSystem }))}
+              >
+                <option value="elimination">На вылет</option>
+                <option value="round_robin">Круговая (каждый с каждым)</option>
+              </select>
+            </div>
             <div className="flex gap-2">
               <Button type="submit">Сохранить</Button>
               <Button type="button" variant="outline" onClick={() => setShowForm(false)}>Отмена</Button>

@@ -280,15 +280,15 @@ function AdminTournamentsPage() {
                   <option value="doubles">Парный (2×2)</option>
                 </select>
               </div>
-              {/* Система проведения: менять нельзя после создания (наследуют группы). */}
+              {/* Система проведения по умолчанию: наследуют новые группы. */}
               <div>
-                <label className="block text-xs text-content-muted mb-1">Система проведения</label>
+                <label className="block text-xs text-content-muted mb-1">Система проведения (по умолчанию)</label>
                 <select
                   className={inputCls}
                   value={form.system || 'elimination'}
                   onChange={(e) => setForm((f) => ({ ...f, system: e.target.value as 'elimination' | 'round_robin' }))}
                   disabled={!!editId}
-                  title={editId ? 'Систему нельзя изменить у существующего турнира' : 'На вылет или круговая (каждый с каждым)'}
+                  title={editId ? 'Значение по умолчанию нельзя изменить у существующего турнира' : 'Значение по умолчанию для новых групп (у каждой группы задаётся отдельно)'}
                 >
                   <option value="elimination">На вылет (сетка)</option>
                   <option value="round_robin">Круговая (каждый с каждым)</option>
