@@ -1,9 +1,9 @@
 "use client";
 import React, { useEffect, useState, useRef } from 'react';
-import { getPlayers, getClubs, createPlayer, updatePlayer } from 'app/lib/client';
+import { getPlayers, getClubs, createPlayer, updatePlayer, deletePlayer } from 'app/lib/client';
 import AdminMenu from 'components/AdminMenu';
 import { Button, Card, Skeleton } from 'components/ui';
-import { FaPlus, FaEdit, FaTimes } from 'react-icons/fa';
+import { FaPlus, FaEdit, FaTimes, FaTrash } from 'react-icons/fa';
 import PlayerAvatarEditor from './PlayerAvatarEditor';
 
 export default function PlayersPage() {
@@ -16,6 +16,7 @@ export default function PlayersPage() {
   const [loading, setLoading] = useState(true);
   const [editingPlayer, setEditingPlayer] = useState<any | null>(null);
   const [editForm, setEditForm] = useState<any>({});
+  const [error, setError] = useState('');
   const [showCreateModal, setShowCreateModal] = useState(false);
   const [createForm, setCreateForm] = useState({ fullName: '', birthYear: '', gender: '', club: '' });
   const [creating, setCreating] = useState(false);
@@ -81,6 +82,19 @@ export default function PlayersPage() {
     }
   }
 
+  async function handleDeletePlayer(player: any) {
+    if (!confirm(`Удалить игрока «${player.fullName}»?\n\nВнимание: если игрок участвует в турнирах, матчи могут остаться без него.`)) return;
+    setSaving(true);
+    try {
+      await deletePlayer(player._id);
+      getPlayers().then(setPlayers);
+    } catch (e: any) {
+      setError(e.message || 'Ошибка удаления игрока');
+    } finally {
+      setSaving(false);
+    }
+  }
+
   async function handleCreatePlayer() {
     setCreating(true);
     try {
@@ -105,6 +119,12 @@ export default function PlayersPage() {
           <FaPlus /> Добавить
         </Button>
       </div>
+
+      {error && (
+        <div className="bg-red-100 dark:bg-red-900/30 text-red-700 dark:text-red-300 px-3 py-2 rounded-lg mb-4 text-sm">
+          {error}
+        </div>
+      )}
 
       {/* Фильтры */}
       <Card className="mb-4">
@@ -175,9 +195,22 @@ export default function PlayersPage() {
                     <td className="p-3 text-content-muted">{p.gender}</td>
                     <td className="p-3 text-content-muted">{p.club}</td>
                     <td className="p-3">
-                      <Button variant="outline" size="sm" onClick={() => startEditPlayer(p)} title="Редактировать">
-                        <FaEdit />
-                      </Button>
+                      <div className="flex gap-1">
+                        <Button variant="outline" size="sm" onClick={() => startEditPlayer(p)} title="Редактировать">
+                          <FaEdit />
+                        </Button>
+                        <Button
+                          variant="ghost"
+                          size="sm"
+                          className="!text-red-600"
+                          onClick={() => handleDeletePlayer(p)}
+                          disabled={saving}
+                          title="Удалить игрока"
+                          aria-label="Удалить игрока"
+                        >
+                          <FaTrash />
+                        </Button>
+                      </div>
                     </td>
                   </tr>
                 ))}
