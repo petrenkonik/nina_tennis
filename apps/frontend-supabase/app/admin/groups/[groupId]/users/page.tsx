@@ -112,7 +112,10 @@ export default function GroupUsersEditorPage() {
     setSaving(true);
     setError('');
     try {
-      await updateGroup(groupId, { ...group, seededPlayers: newSeeds });
+      // Меняем ТОЛЬКО посев: не передаём players, чтобы RPC не трогал состав группы.
+      // (updateGroup трактует отсутствие players как «не менять», а [] — как «очистить»).
+      const { players: _omit, ...rest } = group;
+      await updateGroup(groupId, { ...rest, seededPlayers: newSeeds });
       setSaved(true);
       await fetchData();
     } catch (e: any) {
