@@ -469,9 +469,11 @@ export async function getGroupPairSeeds(groupId: string): Promise<{ playerId: st
 
 export async function createGroup(data: any): Promise<GroupUI> {
   // system может быть задан явно; иначе наследуется от турнира триггером.
+  // tournament_id принимаем в обоих написаниях (tournamentId / tournament_id).
+  const tournamentId = data.tournamentId ?? data.tournament_id;
   const insert: Record<string, unknown> = {
     name: data.name,
-    tournament_id: data.tournament_id ? Number(data.tournament_id) : null,
+    tournament_id: tournamentId ? Number(tournamentId) : null,
   };
   if (data.system === 'round_robin' || data.system === 'elimination') {
     insert.system = data.system;
@@ -512,10 +514,11 @@ export async function updateGroup(id: string, data: any): Promise<{ _id: string;
     ? data.pairSeeds.map((s: any) => ({ player_a_id: Number(s.playerId), seed: s.seed }))
     : null;
 
+  const tournamentId = data.tournament_id ?? data.tournamentId;
   const { error } = await sb.rpc('update_group_full', {
     p_id: Number(id),
     p_name: data.name ?? null,
-    p_tournament_id: data.tournament_id != null ? (data.tournament_id ? Number(data.tournament_id) : null) : null,
+    p_tournament_id: tournamentId != null ? (tournamentId ? Number(tournamentId) : null) : null,
     p_system: data.system === 'round_robin' || data.system === 'elimination' ? data.system : null,
     p_players: players,
     p_seeds: seeds,
