@@ -23,6 +23,20 @@ const STATUS_LABELS: Record<string, string> = {
   canceled: 'Отменён',
 };
 
+/**
+ * Форматирует дату в значение для <input type="datetime-local"> в ЛОКАЛЬНОМ
+ * часовом поясе пользователя (формат YYYY-MM-DDTHH:mm без суффикса зоны).
+ * toISOString() здесь НЕ подходит — он отдаёт UTC (суффикс Z), и пользователь
+ * видит гринвичское время вместо своего.
+ */
+function toLocalDateTimeInput(date: any): string {
+  if (!date) return '';
+  const d = date instanceof Date ? date : new Date(date);
+  if (isNaN(d.getTime())) return '';
+  const pad = (n: number) => String(n).padStart(2, '0');
+  return `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())}T${pad(d.getHours())}:${pad(d.getMinutes())}`;
+}
+
 export default function GroupBracketEditor() {
   const { groupId } = useParams() as { groupId: string };
       const [group, setGroup] = useState<any>(null);
@@ -117,6 +131,9 @@ export default function GroupBracketEditor() {
         court: editingMatch.court || '',
         score: editingMatch.score || '',
         winnerId: editingMatch.winnerId || null,
+        // scheduledAt из инпута приходит как локальная строка "YYYY-MM-DDTHH:mm"
+        // (без зоны). new Date() трактует её как локальное время — то, что нужно.
+        scheduledAt: editingMatch.scheduledAt ? new Date(editingMatch.scheduledAt).toISOString() : null,
       };
       if (isDoubles) {
         payload.player3Id = editingMatch.player3?._id || null;
@@ -348,7 +365,7 @@ export default function GroupBracketEditor() {
               </>
             )}
             <label>Дата
-              <input type="datetime-local" className="border rounded px-2 py-1 w-full" value={editingMatch.scheduledAt ? new Date(editingMatch.scheduledAt).toISOString().slice(0,16) : ''} onChange={e => setEditingMatch((em: any) => ({ ...em, scheduledAt: e.target.value }))} />
+              <input type="datetime-local" className="border rounded px-2 py-1 w-full" value={toLocalDateTimeInput(editingMatch.scheduledAt)} onChange={e => setEditingMatch((em: any) => ({ ...em, scheduledAt: e.target.value }))} />
             </label>
             <label>Корт
               <input type="text" placeholder="Напр. Корт 1" className="border rounded px-2 py-1 w-full" value={editingMatch.court || ''} onChange={e => setEditingMatch((em: any) => ({ ...em, court: e.target.value }))} />
