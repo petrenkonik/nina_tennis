@@ -71,6 +71,15 @@ export interface MatchFullRow {
   referee_last_name?: string | null;
   group_name?: string | null;
   tournament_id?: string | number | null;
+  // feeder-связки (миграция 0010): id матча-источника победителя для каждой стороны.
+  p1_feeds_from?: string | number | null;
+  p2_feeds_from?: string | number | null;
+  p1_feeder_round?: number | null;
+  p1_feeder_a_name?: string | null;
+  p1_feeder_b_name?: string | null;
+  p2_feeder_round?: number | null;
+  p2_feeder_a_name?: string | null;
+  p2_feeder_b_name?: string | null;
 }
 
 export function toMatch(row: MatchFullRow | null | undefined): Match | null {
@@ -115,6 +124,16 @@ export function toMatch(row: MatchFullRow | null | undefined): Match | null {
     pointHistory: row.point_history || [],
     groupId: row.group_id != null ? String(row.group_id) : undefined,
     refereeId: row.referee_id || null,
+    // feeder-связки (миграция 0010): только если сторона ещё не резолвнута
+    // (player_id == null). Метаданные источника для подписи «Победитель матча #N».
+    p1FeedsFrom: row.p1_feeds_from != null ? String(row.p1_feeds_from) : undefined,
+    p2FeedsFrom: row.p2_feeds_from != null ? String(row.p2_feeds_from) : undefined,
+    p1FeederRound: row.p1_feeder_round ?? undefined,
+    p1FeederAName: row.p1_feeder_a_name ?? undefined,
+    p1FeederBName: row.p1_feeder_b_name ?? undefined,
+    p2FeederRound: row.p2_feeder_round ?? undefined,
+    p2FeederAName: row.p2_feeder_a_name ?? undefined,
+    p2FeederBName: row.p2_feeder_b_name ?? undefined,
     // judgedBy не входит во view; подтягивается отдельно при необходимости
     judgedBy: [],
   };

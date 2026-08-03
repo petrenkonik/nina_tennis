@@ -44,6 +44,19 @@ export interface Match {
   judgedBy?: Array<string | { _id: string; email?: string; firstName?: string; lastName?: string }>;
   /** Тип матча: normal — обычный, third_place — матч за 3-е место в сетке. */
   matchKind?: 'normal' | 'third_place';
+  /**
+   * Feeder-связки (миграция 0010): id матча, победитель которого попадает в
+   * эту сторону. Слот показывает «Победитель матча #N (TBD)», пока источник
+   * не сыгран. Метаданные источника — для подписи (имена сторон).
+   */
+  p1FeedsFrom?: string;
+  p2FeedsFrom?: string;
+  p1FeederRound?: number;
+  p1FeederAName?: string;
+  p1FeederBName?: string;
+  p2FeederRound?: number;
+  p2FeederAName?: string;
+  p2FeederBName?: string;
 }
 
 export interface Tournament {

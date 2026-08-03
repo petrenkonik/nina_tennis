@@ -146,6 +146,9 @@ export default function GroupBracketEditor() {
         court: editingMatch.court || '',
         score: editingMatch.score || '',
         winnerId: editingMatch.winnerId || null,
+        // feeder-связки: выбор «Победитель матча #N» (id источника) или null (сброс).
+        p1FeedsFrom: editingMatch.p1FeedsFrom || null,
+        p2FeedsFrom: editingMatch.p2FeedsFrom || null,
         // scheduledAt из инпута приходит как локальная строка "YYYY-MM-DDTHH:mm"
         // (без зоны). new Date() трактует её как локальное время — то, что нужно.
         scheduledAt: editingMatch.scheduledAt ? new Date(editingMatch.scheduledAt).toISOString() : null,
@@ -180,6 +183,24 @@ export default function GroupBracketEditor() {
     (roundFilter === '' || m.round === roundFilter) &&
     (!statusFilter || m.status === statusFilter)
   );
+
+  // Подпись матча-источника для дропдауна feeder'а:
+  // «#15 · Андреева / Киносян» (имена сторон; для doubles — капитаны пар).
+  function sourceLabel(m: any): string {
+    const a = m.player1?.fullName || (m.p1FeedsFrom ? `#${m.p1FeedsFrom}` : '?');
+    const b = m.player2?.fullName || (m.p2FeedsFrom ? `#${m.p2FeedsFrom}` : '');
+    const sides = b ? `${a} / ${b}` : a;
+    return `#${m._id} · ${sides}`;
+  }
+
+  // Доступные матчи-источники для feeder'а: все обычные матчи из более ранних
+  // раундов (не сам редактируемый матч). Победитель источника попадёт в сторону.
+  const sourceMatches = editingMatch
+    ? matches.filter((m: any) =>
+        m.matchKind !== 'third_place' &&
+        String(m._id) !== String(editingMatch._id) &&
+        (m.round || 1) < (editingMatch.round || 1))
+    : [];
 
   if (loading) return <div>Загрузка...</div>;
 
@@ -296,12 +317,16 @@ export default function GroupBracketEditor() {
             </div>
             <div className="flex gap-4">
               <span>
-                {m.player1 ? m.player1.fullName : <span className="text-gray-400">—</span>}
+                {m.player1 ? m.player1.fullName
+                  : m.p1FeedsFrom ? <span className="text-indigo-600 italic">↪ Победитель матча #{m.p1FeedsFrom}</span>
+                  : <span className="text-gray-400">—</span>}
                 {m.player3 && <span className="text-gray-500"> / {m.player3.fullName}</span>}
               </span>
               <span>vs</span>
               <span>
-                {m.player2 ? m.player2.fullName : <span className="text-gray-400">—</span>}
+                {m.player2 ? m.player2.fullName
+                  : m.p2FeedsFrom ? <span className="text-indigo-600 italic">↪ Победитель матча #{m.p2FeedsFrom}</span>
+                  : <span className="text-gray-400">—</span>}
                 {m.player4 && <span className="text-gray-500"> / {m.player4.fullName}</span>}
               </span>
             </div>
@@ -355,6 +380,35 @@ export default function GroupBracketEditor() {
                     {pairs.map((p: any) => <option key={p.a._id} value={p.a._id}>{p.a.fullName} / {p.b.fullName}</option>)}
                   </select>
                 </label>
+                <label className="text-xs text-indigo-600">Сторона 1: победитель матча
+                  <select
+                    className="border rounded px-2 py-1 w-full text-sm"
+                    value={editingMatch.p1FeedsFrom || ''}
+                    onChange={e => setEditingMatch((em: any) => ({
+                      ...em,
+                      p1FeedsFrom: e.target.value || null,
+                      // выбор feeder'а обнуляет явного игрока (сторона ждёт победителя)
+                      player1: null, player3: null,
+                    }))}
+                  >
+                    <option value="">— выбрать команду вручную —</option>
+                    {sourceMatches.map((m: any) => <option key={m._id} value={m._id}>{sourceLabel(m)}</option>)}
+                  </select>
+                </label>
+                <label className="text-xs text-indigo-600">Сторона 2: победитель матча
+                  <select
+                    className="border rounded px-2 py-1 w-full text-sm"
+                    value={editingMatch.p2FeedsFrom || ''}
+                    onChange={e => setEditingMatch((em: any) => ({
+                      ...em,
+                      p2FeedsFrom: e.target.value || null,
+                      player2: null, player4: null,
+                    }))}
+                  >
+                    <option value="">— выбрать команду вручную —</option>
+                    {sourceMatches.map((m: any) => <option key={m._id} value={m._id}>{sourceLabel(m)}</option>)}
+                  </select>
+                </label>
               </>
             ) : (
               <>
@@ -394,6 +448,34 @@ export default function GroupBracketEditor() {
                   >
                     <option value="">—</option>
                     {players.map((p: any) => <option key={p._id} value={p._id}>{p.fullName}</option>)}
+                  </select>
+                </label>
+                <label className="text-xs text-indigo-600">Сторона 1: победитель матча
+                  <select
+                    className="border rounded px-2 py-1 w-full text-sm"
+                    value={editingMatch.p1FeedsFrom || ''}
+                    onChange={e => setEditingMatch((em: any) => ({
+                      ...em,
+                      p1FeedsFrom: e.target.value || null,
+                      player1: null,
+                    }))}
+                  >
+                    <option value="">— выбрать игрока вручную —</option>
+                    {sourceMatches.map((m: any) => <option key={m._id} value={m._id}>{sourceLabel(m)}</option>)}
+                  </select>
+                </label>
+                <label className="text-xs text-indigo-600">Сторона 2: победитель матча
+                  <select
+                    className="border rounded px-2 py-1 w-full text-sm"
+                    value={editingMatch.p2FeedsFrom || ''}
+                    onChange={e => setEditingMatch((em: any) => ({
+                      ...em,
+                      p2FeedsFrom: e.target.value || null,
+                      player2: null,
+                    }))}
+                  >
+                    <option value="">— выбрать игрока вручную —</option>
+                    {sourceMatches.map((m: any) => <option key={m._id} value={m._id}>{sourceLabel(m)}</option>)}
                   </select>
                 </label>
               </>

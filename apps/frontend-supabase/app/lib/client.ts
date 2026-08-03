@@ -648,8 +648,23 @@ export async function getGroupBracket(groupId: string): Promise<BracketResult> {
   const buildSide = (
     captainId: any, name: any, photo: any, club: any,
     partnerId: any, partnerName: any, partnerPhoto: any, partnerClub: any,
+    feedsFrom: any = null, feederRound: any = null, feederAName: any = null, feederBName: any = null,
   ) => {
-    if (captainId == null) return { name: 'BYE' };
+    // Сторона НЕ резолвнута (нет игрока): feeder → «Победитель матча #N», иначе BYE.
+    if (captainId == null) {
+      if (feedsFrom != null) {
+        const a = feederAName || '?';
+        const b = feederBName || '?';
+        return {
+          name: 'TBD',
+          // BracketPlayerRow отрисует fullName как подпись (без _id → TBD-стиль).
+          fullName: `Победитель матча #${feedsFrom}`,
+          feederMatchId: String(feedsFrom),
+          feederLabel: `${a} / ${b}`,
+        };
+      }
+      return { name: 'BYE' };
+    }
     const side: any = {
       _id: String(captainId),
       fullName: name,
@@ -671,8 +686,8 @@ export async function getGroupBracket(groupId: string): Promise<BracketResult> {
   const toBracketMatch = (m: any) => ({
     id: String(m.id),
     teams: [
-      buildSide(m.player1_id, m.player1_name, m.player1_photo, m.player1_club, m.player3_id, m.player3_name, m.player3_photo, m.player3_club),
-      buildSide(m.player2_id, m.player2_name, m.player2_photo, m.player2_club, m.player4_id, m.player4_name, m.player4_photo, m.player4_club),
+      buildSide(m.player1_id, m.player1_name, m.player1_photo, m.player1_club, m.player3_id, m.player3_name, m.player3_photo, m.player3_club, m.p1_feeds_from, m.p1_feeder_round, m.p1_feeder_a_name, m.p1_feeder_b_name),
+      buildSide(m.player2_id, m.player2_name, m.player2_photo, m.player2_club, m.player4_id, m.player4_name, m.player4_photo, m.player4_club, m.p2_feeds_from, m.p2_feeder_round, m.p2_feeder_a_name, m.p2_feeder_b_name),
     ],
     score: m.score,
     scheduledAt: m.scheduled_at,
@@ -785,6 +800,9 @@ export async function updateMatch(
   if (data.player2Id !== undefined) patch.player2Id = data.player2Id ? Number(data.player2Id) : null;
   if (data.player3Id !== undefined) patch.player3Id = data.player3Id ? Number(data.player3Id) : null;
   if (data.player4Id !== undefined) patch.player4Id = data.player4Id ? Number(data.player4Id) : null;
+  // feeder-связки: id матча-источника победителя, либо null (явный сброс).
+  if (data.p1FeedsFrom !== undefined) patch.p1FeedsFrom = data.p1FeedsFrom ? Number(data.p1FeedsFrom) : null;
+  if (data.p2FeedsFrom !== undefined) patch.p2FeedsFrom = data.p2FeedsFrom ? Number(data.p2FeedsFrom) : null;
   if (data.refereeId !== undefined) patch.refereeId = data.refereeId;
 
   const { data: row, error } = await sb.rpc('update_match_admin', {

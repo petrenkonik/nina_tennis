@@ -4,10 +4,12 @@ import { cx } from 'components/ui/cx';
 import { ScorePill, StatusBadge } from 'components/ui';
 import BracketPlayerRow from './BracketPlayerRow';
 
-/** Игрок в матче: либо полный объект (с _id), либо BYE-слот {name:'BYE'}. */
+/** Игрок в матче: либо полный объект (с _id), либо BYE-слот {name:'BYE'},
+ *  либо feeder-слот {name:'TBD'} — «Победитель матча #N (ожидается)». */
 export type BracketPlayer =
   | { _id: string; fullName?: string; photoUrl?: string; club?: string; seed?: number; partner?: { _id: string; fullName?: string; photoUrl?: string; club?: string } }
   | { name: 'BYE' }
+  | { name: 'TBD'; fullName?: string; feederMatchId?: string; feederLabel?: string }
   | null
   | undefined;
 
